@@ -133,7 +133,7 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 }
 
 // NewEVMWithPrecompiles returns a new EVM with customized precompiled contracts
-func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config, precompiles func(common.Address) (PrecompiledContract, bool)) *EVM {
+func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config, customPrecompiles func(common.Address) (PrecompiledContract, bool)) *EVM {
 	evm := &EVM{
 		Context:     blockCtx,
 		TxContext:   txCtx,
@@ -143,10 +143,17 @@ func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb State
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
 	}
 	evm.interpreter = NewEVMInterpreter(evm, config)
-	if precompiles == nil {
+	if customPrecompiles == nil {
 		evm.precompiles = evm.precompile
 	} else {
-		evm.precompiles = precompiles
+		// check if custom precompile first, then try default precompiles
+		evm.precompiles = func(addr common.Address) (PrecompiledContract, bool) {
+			customPrecompile, isCustom := customPrecompiles(addr)
+			if !isCustom {
+				return evm.precompile(addr)
+			}
+			return customPrecompile, true
+		}
 	}
 	return evm
 }
