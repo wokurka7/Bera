@@ -129,11 +129,6 @@ type EVM struct {
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
 // only ever be used *once*.
 func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config) *EVM {
-	return NewEVMWithPrecompiles(blockCtx, txCtx, statedb, chainConfig, config, nil)
-}
-
-// NewEVMWithPrecompiles returns a new EVM with customized precompiled contracts
-func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig *params.ChainConfig, config Config, customPrecompiles func(common.Address) (PrecompiledContract, bool)) *EVM {
 	evm := &EVM{
 		Context:     blockCtx,
 		TxContext:   txCtx,
@@ -143,18 +138,7 @@ func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb State
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil),
 	}
 	evm.interpreter = NewEVMInterpreter(evm, config)
-	if customPrecompiles == nil {
-		evm.Precompiles = evm.precompile
-	} else {
-		// check if custom precompile first, then try default precompiles
-		evm.Precompiles = func(addr common.Address) (PrecompiledContract, bool) {
-			customPrecompile, isCustom := customPrecompiles(addr)
-			if !isCustom {
-				return evm.precompile(addr)
-			}
-			return customPrecompile, true
-		}
-	}
+	evm.Precompiles = evm.precompile
 	return evm
 }
 
