@@ -123,7 +123,7 @@ type EVM struct {
 	callGasTemp uint64
 
 	// custom or default precompiled contracts
-	precompiles func(common.Address) (PrecompiledContract, bool)
+	Precompiles func(common.Address) (PrecompiledContract, bool)
 }
 
 // NewEVM returns a new EVM. The returned EVM is not thread safe and should
@@ -144,10 +144,10 @@ func NewEVMWithPrecompiles(blockCtx BlockContext, txCtx TxContext, statedb State
 	}
 	evm.interpreter = NewEVMInterpreter(evm, config)
 	if customPrecompiles == nil {
-		evm.precompiles = evm.precompile
+		evm.Precompiles = evm.precompile
 	} else {
 		// check if custom precompile first, then try default precompiles
-		evm.precompiles = func(addr common.Address) (PrecompiledContract, bool) {
+		evm.Precompiles = func(addr common.Address) (PrecompiledContract, bool) {
 			customPrecompile, isCustom := customPrecompiles(addr)
 			if !isCustom {
 				return evm.precompile(addr)
