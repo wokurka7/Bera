@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	mapset "github.com/deckarep/golang-set"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/gorilla/websocket"
 )
@@ -69,7 +69,7 @@ func (s *Server) WebsocketHandler(allowedOrigins []string) http.Handler {
 // websocket upgrade process. When a '*' is specified as an allowed origins all
 // connections are accepted.
 func wsHandshakeValidator(allowedOrigins []string) func(*http.Request) bool {
-	origins := mapset.NewSet()
+	origins := mapset.NewSet[string]()
 	allowAllOrigins := false
 
 	for _, origin := range allowedOrigins {
@@ -122,10 +122,10 @@ func (e wsHandshakeError) Error() string {
 	return s
 }
 
-func originIsAllowed(allowedOrigins mapset.Set, browserOrigin string) bool {
+func originIsAllowed(allowedOrigins mapset.Set[string], browserOrigin string) bool {
 	it := allowedOrigins.Iterator()
 	for origin := range it.C {
-		if ruleAllowsOrigin(origin.(string), browserOrigin) {
+		if ruleAllowsOrigin(origin, browserOrigin) {
 			return true
 		}
 	}
@@ -181,24 +181,23 @@ func parseOriginURL(origin string) (string, string, string, error) {
 	return scheme, hostname, port, nil
 }
 
-// DialWebsocketWithDialer creates a new RPC client that communicates with a JSON-RPC server
-// that is listening on the given endpoint using the provided dialer.
+// DialWebsocketWithDialer creates a new RPC client using WebSocket.
+//
+// The context is used for the initial connection establishment. It does not
+// affect subsequent interactions with the client.
+//
+// Deprecated: use DialOptions and the WithWebsocketDialer option.
 func DialWebsocketWithDialer(ctx context.Context, endpoint, origin string, dialer websocket.Dialer) (*Client, error) {
-	endpoint, header, err := wsClientHeaders(endpoint, origin)
+	cfg := new(clientConfig)
+	cfg.wsDialer = &dialer
+	if origin != "" {
+		cfg.setHeader("origin", origin)
+	}
+	connect, err := newClientTransportWS(endpoint, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return newClient(ctx, func(ctx context.Context) (ServerCodec, error) {
-		conn, resp, err := dialer.DialContext(ctx, endpoint, header)
-		if err != nil {
-			hErr := wsHandshakeError{err: err}
-			if resp != nil {
-				hErr.status = resp.Status
-			}
-			return nil, hErr
-		}
-		return newWebsocketCodec(conn, endpoint, header), nil
-	})
+	return newClient(ctx, connect)
 }
 
 // DialWebsocket creates a new RPC client that communicates with a JSON-RPC server
@@ -207,12 +206,53 @@ func DialWebsocketWithDialer(ctx context.Context, endpoint, origin string, diale
 // The context is used for the initial connection establishment. It does not
 // affect subsequent interactions with the client.
 func DialWebsocket(ctx context.Context, endpoint, origin string) (*Client, error) {
-	dialer := websocket.Dialer{
-		ReadBufferSize:  wsReadBuffer,
-		WriteBufferSize: wsWriteBuffer,
-		WriteBufferPool: wsBufferPool,
+	cfg := new(clientConfig)
+	if origin != "" {
+		cfg.setHeader("origin", origin)
 	}
-	return DialWebsocketWithDialer(ctx, endpoint, origin, dialer)
+	connect, err := newClientTransportWS(endpoint, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return newClient(ctx, connect)
+}
+
+func newClientTransportWS(endpoint string, cfg *clientConfig) (reconnectFunc, error) {
+	dialer := cfg.wsDialer
+	if dialer == nil {
+		dialer = &websocket.Dialer{
+			ReadBufferSize:  wsReadBuffer,
+			WriteBufferSize: wsWriteBuffer,
+			WriteBufferPool: wsBufferPool,
+		}
+	}
+
+	dialURL, header, err := wsClientHeaders(endpoint, "")
+	if err != nil {
+		return nil, err
+	}
+	for key, values := range cfg.httpHeaders {
+		header[key] = values
+	}
+
+	connect := func(ctx context.Context) (ServerCodec, error) {
+		header := header.Clone()
+		if cfg.httpAuth != nil {
+			if err := cfg.httpAuth(header); err != nil {
+				return nil, err
+			}
+		}
+		conn, resp, err := dialer.DialContext(ctx, dialURL, header)
+		if err != nil {
+			hErr := wsHandshakeError{err: err}
+			if resp != nil {
+				hErr.status = resp.Status
+			}
+			return nil, hErr
+		}
+		return newWebsocketCodec(conn, dialURL, header), nil
+	}
+	return connect, nil
 }
 
 func wsClientHeaders(endpoint, origin string) (string, http.Header, error) {

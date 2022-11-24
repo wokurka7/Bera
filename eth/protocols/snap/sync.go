@@ -70,7 +70,7 @@ const (
 	// and waste round trip times. If it's too high, we're capping responses and
 	// waste bandwidth.
 	//
-	// Depoyed bytecodes are currently capped at 24KB, so the minimum request
+	// Deployed bytecodes are currently capped at 24KB, so the minimum request
 	// size should be maxRequestSize / 24K. Assuming that most contracts do not
 	// come close to that, requesting 4x should be a good approximation.
 	maxCodeRequestCount = maxRequestSize / (24 * 1024) * 4
@@ -87,8 +87,13 @@ const (
 	trienodeHealRateMeasurementImpact = 0.005
 
 	// minTrienodeHealThrottle is the minimum divisor for throttling trie node
+<<<<<<< HEAD
+	// heal requests to avoid overloading the local node and excessively expanding
+	// the state trie breadth wise.
+=======
 	// heal requests to avoid overloading the local node and exessively expanding
 	// the state trie bedth wise.
+>>>>>>> temp
 	minTrienodeHealThrottle = 1
 
 	// maxTrienodeHealThrottle is the maximum divisor for throttling trie node
@@ -615,6 +620,8 @@ func (s *Syncer) Sync(root common.Hash, cancel chan struct{}) error {
 		}
 	}()
 	defer s.report(true)
+	// commit any trie- and bytecode-healing data.
+	defer s.commitHealer(true)
 
 	// Whether sync completed or not, disregard any future packets
 	defer func() {
@@ -2154,6 +2161,57 @@ func (s *Syncer) processTrienodeHealResponse(res *trienodeHealResponse) {
 			log.Error("Invalid trienode processed", "hash", hash, "err", err)
 		}
 	}
+	s.commitHealer(false)
+
+	// Calculate the processing rate of one filled trie node
+	rate := float64(fills) / (float64(time.Since(start)) / float64(time.Second))
+
+	// Update the currently measured trienode queueing and processing throughput.
+	//
+	// The processing rate needs to be updated uniformly independent if we've
+	// processed 1x100 trie nodes or 100x1 to keep the rate consistent even in
+	// the face of varying network packets. As such, we cannot just measure the
+	// time it took to process N trie nodes and update once, we need one update
+	// per trie node.
+	//
+	// Naively, that would be:
+	//
+	//   for i:=0; i<fills; i++ {
+	//     healRate = (1-measurementImpact)*oldRate + measurementImpact*newRate
+	//   }
+	//
+	// Essentially, a recursive expansion of HR = (1-MI)*HR + MI*NR.
+	//
+	// We can expand that formula for the Nth item as:
+	//   HR(N) = (1-MI)^N*OR + (1-MI)^(N-1)*MI*NR + (1-MI)^(N-2)*MI*NR + ... + (1-MI)^0*MI*NR
+	//
+	// The above is a geometric sequence that can be summed to:
+	//   HR(N) = (1-MI)^N*(OR-NR) + NR
+	s.trienodeHealRate = gomath.Pow(1-trienodeHealRateMeasurementImpact, float64(fills))*(s.trienodeHealRate-rate) + rate
+
+	pending := atomic.LoadUint64(&s.trienodeHealPend)
+	if time.Since(s.trienodeHealThrottled) > time.Second {
+		// Periodically adjust the trie node throttler
+		if float64(pending) > 2*s.trienodeHealRate {
+			s.trienodeHealThrottle *= trienodeHealThrottleIncrease
+		} else {
+			s.trienodeHealThrottle /= trienodeHealThrottleDecrease
+		}
+		if s.trienodeHealThrottle > maxTrienodeHealThrottle {
+			s.trienodeHealThrottle = maxTrienodeHealThrottle
+		} else if s.trienodeHealThrottle < minTrienodeHealThrottle {
+			s.trienodeHealThrottle = minTrienodeHealThrottle
+		}
+		s.trienodeHealThrottled = time.Now()
+
+		log.Debug("Updated trie node heal throttler", "rate", s.trienodeHealRate, "pending", pending, "throttle", s.trienodeHealThrottle)
+	}
+}
+
+func (s *Syncer) commitHealer(force bool) {
+	if !force && s.healer.scheduler.MemSize() < ethdb.IdealBatchSize {
+		return
+	}
 	batch := s.db.NewBatch()
 	if err := s.healer.scheduler.Commit(batch); err != nil {
 		log.Error("Failed to commit healing data", "err", err)
@@ -2234,14 +2292,7 @@ func (s *Syncer) processBytecodeHealResponse(res *bytecodeHealResponse) {
 			log.Error("Invalid bytecode processed", "hash", hash, "err", err)
 		}
 	}
-	batch := s.db.NewBatch()
-	if err := s.healer.scheduler.Commit(batch); err != nil {
-		log.Error("Failed to commit healing data", "err", err)
-	}
-	if err := batch.Write(); err != nil {
-		log.Crit("Failed to persist healing data", "err", err)
-	}
-	log.Debug("Persisted set of healing data", "type", "bytecode", "bytes", common.StorageSize(batch.ValueSize()))
+	s.commitHealer(false)
 }
 
 // forwardAccountTask takes a filled account task and persists anything available
@@ -2962,7 +3013,7 @@ func (s *Syncer) reportSyncProgress(force bool) {
 		storage  = fmt.Sprintf("%v@%v", log.FormatLogfmtUint64(s.storageSynced), s.storageBytes.TerminalString())
 		bytecode = fmt.Sprintf("%v@%v", log.FormatLogfmtUint64(s.bytecodeSynced), s.bytecodeBytes.TerminalString())
 	)
-	log.Info("State sync in progress", "synced", progress, "state", synced,
+	log.Info("Syncing: state download in progress", "synced", progress, "state", synced,
 		"accounts", accounts, "slots", storage, "codes", bytecode, "eta", common.PrettyDuration(estTime-elapsed))
 }
 
@@ -2981,7 +3032,7 @@ func (s *Syncer) reportHealProgress(force bool) {
 		accounts = fmt.Sprintf("%v@%v", log.FormatLogfmtUint64(s.accountHealed), s.accountHealedBytes.TerminalString())
 		storage  = fmt.Sprintf("%v@%v", log.FormatLogfmtUint64(s.storageHealed), s.storageHealedBytes.TerminalString())
 	)
-	log.Info("State heal in progress", "accounts", accounts, "slots", storage,
+	log.Info("Syncing: state healing in progress", "accounts", accounts, "slots", storage,
 		"codes", bytecode, "nodes", trienode, "pending", s.healer.scheduler.Pending())
 }
 
