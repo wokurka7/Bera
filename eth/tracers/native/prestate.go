@@ -55,6 +55,7 @@ type accountMarshaling struct {
 }
 
 type prestateTracer struct {
+	noopTracer
 	env       *vm.EVM
 	pre       state
 	post      state
@@ -69,12 +70,10 @@ type prestateTracer struct {
 }
 
 type prestateTracerConfig struct {
-	DiffMode bool `json:"diffMode"` // If true, this tracer will return all diff states
+	DiffMode bool `json:"diffMode"` // If true, this tracer will return state modifications
 }
 
 func newPrestateTracer(ctx *tracers.Context, cfg json.RawMessage) (tracers.Tracer, error) {
-	// First callframe contains tx context info
-	// and is populated on start and end.
 	var config prestateTracerConfig
 	if cfg != nil {
 		if err := json.Unmarshal(cfg, &config); err != nil {
@@ -169,19 +168,6 @@ func (t *prestateTracer) CaptureState(pc uint64, op vm.OpCode, gas, cost uint64,
 	}
 }
 
-// CaptureFault implements the EVMLogger interface to trace an execution fault.
-func (t *prestateTracer) CaptureFault(pc uint64, op vm.OpCode, gas, cost uint64, _ *vm.ScopeContext, depth int, err error) {
-}
-
-// CaptureEnter is called when EVM enters a new scope (via call, create or selfdestruct).
-func (t *prestateTracer) CaptureEnter(typ vm.OpCode, from common.Address, to common.Address, input []byte, gas uint64, value *big.Int) {
-}
-
-// CaptureExit is called when EVM exits a scope, even if the scope didn't
-// execute any code.
-func (t *prestateTracer) CaptureExit(output []byte, gasUsed uint64, err error) {
-}
-
 func (t *prestateTracer) CaptureTxStart(gasLimit uint64) {
 	t.gasLimit = gasLimit
 }
@@ -192,7 +178,7 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 	}
 
 	for addr, state := range t.pre {
-		// the deleted account's state is pruned
+		// The deleted account's state is pruned from `post` but kept in `pre`
 		if _, ok := t.deleted[addr]; ok {
 			continue
 		}
@@ -222,7 +208,10 @@ func (t *prestateTracer) CaptureTxEnd(restGas uint64) {
 			}
 
 			newVal := t.env.StateDB.GetState(addr, key)
-			if val != newVal {
+			if val == newVal {
+				// Omit unchanged slots
+				delete(t.pre[addr].Storage, key)
+			} else {
 				modified = true
 				if newVal != (common.Hash{}) {
 					postAccount.Storage[key] = newVal
