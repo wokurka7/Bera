@@ -17,7 +17,6 @@
 package vm
 
 import (
-	"context"
 	"math/big"
 	"sync/atomic"
 	"time"
@@ -44,8 +43,9 @@ type (
 
 // `PrecompileController` allows the EVM to execute a precompiled contract.
 type PrecompileController interface {
-	// `Prepare` sets the precompile's native environment context and stateDB.
-	Prepare(ctx context.Context, statedb StateDB)
+	// `PrepareForStateTransition` holds the precompile native statedb
+	// before beginning a state transition.
+	PrepareForStateTransition(statedb StateDB) error
 
 	// `Exists` returns if a precompiled contract was found at `addr`.
 	Exists(addr common.Address) (p PrecompiledContract, found bool)
