@@ -43,8 +43,6 @@ type PrecompiledContract interface {
 	RequiredGas(input []byte) uint64
 	// Run runs the precompiled contract with the given context.
 	Run(ctx context.Context, input []byte, caller common.Address, value *big.Int, readonly bool) ([]byte, error)
-	// WithStateDB sets the statedb for the contract to use.
-	WithStateDB(sdb StateDB) PrecompiledContract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -189,8 +187,6 @@ func (c *ecrecover) Run(ctx context.Context, input []byte, caller common.Address
 	return common.LeftPadBytes(crypto.Keccak256(pubKey[1:])[12:], 32), nil
 }
 
-func (c *ecrecover) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // SHA256 implemented as a native contract.
 type sha256hash struct{}
 
@@ -209,8 +205,6 @@ func (c *sha256hash) Run(ctx context.Context, input []byte, caller common.Addres
 	h := sha256.Sum256(input)
 	return h[:], nil
 }
-
-func (c *sha256hash) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // RIPEMD160 implemented as a native contract.
 type ripemd160hash struct{}
@@ -232,8 +226,6 @@ func (c *ripemd160hash) Run(ctx context.Context, input []byte, caller common.Add
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
 }
 
-func (c *ripemd160hash) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // data copy implemented as a native contract.
 type dataCopy struct{}
 
@@ -251,8 +243,6 @@ func (c *dataCopy) RequiredGas(input []byte) uint64 {
 func (c *dataCopy) Run(ctx context.Context, input []byte, caller common.Address, value *big.Int, readonly bool) ([]byte, error) {
 	return input, nil
 }
-
-func (c *dataCopy) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // bigModExp implements a native big integer exponential modular operation.
 type bigModExp struct {
@@ -409,8 +399,6 @@ func (c *bigModExp) Run(ctx context.Context, input []byte, caller common.Address
 	return common.LeftPadBytes(base.Exp(base, exp, mod).Bytes(), int(modLen)), nil
 }
 
-func (c *bigModExp) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // newCurvePoint unmarshals a binary blob into a bn256 elliptic curve point,
 // returning it, or an error if the point is invalid.
 func newCurvePoint(blob []byte) (*bn256.G1, error) {
@@ -464,8 +452,6 @@ func (c *bn256AddIstanbul) Run(ctx context.Context, input []byte, caller common.
 	return runBn256Add(input)
 }
 
-func (c *bn256AddIstanbul) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bn256AddByzantium implements a native elliptic curve point addition
 // conforming to Byzantium consensus rules.
 type bn256AddByzantium struct{}
@@ -482,8 +468,6 @@ func (c *bn256AddByzantium) RequiredGas(input []byte) uint64 {
 func (c *bn256AddByzantium) Run(ctx context.Context, input []byte, caller common.Address, value *big.Int, readonly bool) ([]byte, error) {
 	return runBn256Add(input)
 }
-
-func (c *bn256AddByzantium) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // runBn256ScalarMul implements the Bn256ScalarMul precompile, referenced by
 // both Byzantium and Istanbul operations.
@@ -514,8 +498,6 @@ func (c *bn256ScalarMulIstanbul) Run(ctx context.Context, input []byte, caller c
 	return runBn256ScalarMul(input)
 }
 
-func (c *bn256ScalarMulIstanbul) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bn256ScalarMulByzantium implements a native elliptic curve scalar
 // multiplication conforming to Byzantium consensus rules.
 type bn256ScalarMulByzantium struct{}
@@ -532,8 +514,6 @@ func (c *bn256ScalarMulByzantium) RequiredGas(input []byte) uint64 {
 func (c *bn256ScalarMulByzantium) Run(ctx context.Context, input []byte, caller common.Address, value *big.Int, readonly bool) ([]byte, error) {
 	return runBn256ScalarMul(input)
 }
-
-func (c *bn256ScalarMulByzantium) WithStateDB(StateDB) PrecompiledContract { return c }
 
 var (
 	// true32Byte is returned if the bn256 pairing check succeeds.
@@ -594,8 +574,6 @@ func (c *bn256PairingIstanbul) Run(ctx context.Context, input []byte, caller com
 	return runBn256Pairing(input)
 }
 
-func (c *bn256PairingIstanbul) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bn256PairingByzantium implements a pairing pre-compile for the bn256 curve
 // conforming to Byzantium consensus rules.
 type bn256PairingByzantium struct{}
@@ -612,8 +590,6 @@ func (c *bn256PairingByzantium) RequiredGas(input []byte) uint64 {
 func (c *bn256PairingByzantium) Run(ctx context.Context, input []byte, caller common.Address, value *big.Int, readonly bool) ([]byte, error) {
 	return runBn256Pairing(input)
 }
-
-func (c *bn256PairingByzantium) WithStateDB(StateDB) PrecompiledContract { return c }
 
 type blake2F struct{}
 
@@ -680,8 +656,6 @@ func (c *blake2F) Run(ctx context.Context, input []byte, caller common.Address, 
 	return output, nil
 }
 
-func (c *blake2F) WithStateDB(StateDB) PrecompiledContract { return c }
-
 var (
 	errBLS12381InvalidInputLength          = errors.New("invalid input length")
 	errBLS12381InvalidFieldElementTopBytes = errors.New("invalid field element top bytes")
@@ -731,8 +705,6 @@ func (c *bls12381G1Add) Run(ctx context.Context, input []byte, caller common.Add
 	return g.EncodePoint(r), nil
 }
 
-func (c *bls12381G1Add) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bls12381G1Mul implements EIP-2537 G1Mul precompile.
 type bls12381G1Mul struct{}
 
@@ -772,8 +744,6 @@ func (c *bls12381G1Mul) Run(ctx context.Context, input []byte, caller common.Add
 	// Encode the G1 point into 128 bytes
 	return g.EncodePoint(r), nil
 }
-
-func (c *bls12381G1Mul) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // bls12381G1MultiExp implements EIP-2537 G1MultiExp precompile.
 type bls12381G1MultiExp struct{}
@@ -836,8 +806,6 @@ func (c *bls12381G1MultiExp) Run(ctx context.Context, input []byte, caller commo
 	return g.EncodePoint(r), nil
 }
 
-func (c *bls12381G1MultiExp) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bls12381G2Add implements EIP-2537 G2Add precompile.
 type bls12381G2Add struct{}
 
@@ -880,8 +848,6 @@ func (c *bls12381G2Add) Run(ctx context.Context, input []byte, caller common.Add
 	return g.EncodePoint(r), nil
 }
 
-func (c *bls12381G2Add) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bls12381G2Mul implements EIP-2537 G2Mul precompile.
 type bls12381G2Mul struct{}
 
@@ -921,8 +887,6 @@ func (c *bls12381G2Mul) Run(ctx context.Context, input []byte, caller common.Add
 	// Encode the G2 point into 256 bytes
 	return g.EncodePoint(r), nil
 }
-
-func (c *bls12381G2Mul) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // bls12381G2MultiExp implements EIP-2537 G2MultiExp precompile.
 type bls12381G2MultiExp struct{}
@@ -984,8 +948,6 @@ func (c *bls12381G2MultiExp) Run(ctx context.Context, input []byte, caller commo
 	// Encode the G2 point to 256 bytes.
 	return g.EncodePoint(r), nil
 }
-
-func (c *bls12381G2MultiExp) WithStateDB(StateDB) PrecompiledContract { return c }
 
 // bls12381Pairing implements EIP-2537 Pairing precompile.
 type bls12381Pairing struct{}
@@ -1053,8 +1015,6 @@ func (c *bls12381Pairing) Run(ctx context.Context, input []byte, caller common.A
 	return out, nil
 }
 
-func (c *bls12381Pairing) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // decodeBLS12381FieldElement decodes BLS12-381 elliptic curve field element.
 // Removes top 16 bytes of 64 byte input.
 func decodeBLS12381FieldElement(in []byte) ([]byte, error) {
@@ -1111,8 +1071,6 @@ func (c *bls12381MapG1) Run(ctx context.Context, input []byte, caller common.Add
 	return g.EncodePoint(r), nil
 }
 
-func (c *bls12381MapG1) WithStateDB(StateDB) PrecompiledContract { return c }
-
 // bls12381MapG2 implements EIP-2537 MapG2 precompile.
 type bls12381MapG2 struct{}
 
@@ -1158,5 +1116,3 @@ func (c *bls12381MapG2) Run(ctx context.Context, input []byte, caller common.Add
 	// Encode the G2 point to 256 bytes
 	return g.EncodePoint(r), nil
 }
-
-func (c *bls12381MapG2) WithStateDB(StateDB) PrecompiledContract { return c }
