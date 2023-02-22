@@ -37,8 +37,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/tracers/logger"
+	"github.com/ethereum/go-ethereum/ethapi"
 	"github.com/ethereum/go-ethereum/ethdb"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -86,8 +86,8 @@ type Backend interface {
 	ChainConfig() *params.ChainConfig
 	Engine() consensus.Engine
 	ChainDb() ethdb.Database
-	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (*state.StateDB, StateReleaseFunc, error)
-	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, *state.StateDB, StateReleaseFunc, error)
+	StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base state.StateDBI, readOnly bool, preferDisk bool) (state.StateDBI, StateReleaseFunc, error)
+	StateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (core.Message, vm.BlockContext, state.StateDBI, StateReleaseFunc, error)
 }
 
 // API is the collection of tracing APIs exposed over the private debugging endpoint.
@@ -207,7 +207,7 @@ type txTraceResult struct {
 // blockTraceTask represents a single block trace task when an entire chain is
 // being traced.
 type blockTraceTask struct {
-	statedb *state.StateDB   // Intermediate state prepped for tracing
+	statedb state.StateDBI   // Intermediate state prepped for tracing
 	block   *types.Block     // Block to trace the transactions from
 	release StateReleaseFunc // The function to release the held resource for this task
 	results []*txTraceResult // Trace results produced by the task
@@ -224,7 +224,7 @@ type blockTraceResult struct {
 // txTraceTask represents a single transaction trace task when an entire block
 // is being traced.
 type txTraceTask struct {
-	statedb *state.StateDB // Intermediate state prepped for tracing
+	statedb state.StateDBI // Intermediate state prepped for tracing
 	index   int            // Transaction offset in the block
 }
 
@@ -295,9 +295,10 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 				for i, tx := range task.block.Transactions() {
 					msg, _ := tx.AsMessage(signer, task.block.BaseFee())
 					txctx := &Context{
-						BlockHash: task.block.Hash(),
-						TxIndex:   i,
-						TxHash:    tx.Hash(),
+						BlockHash:   task.block.Hash(),
+						BlockNumber: task.block.Number(),
+						TxIndex:     i,
+						TxHash:      tx.Hash(),
 					}
 					res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 					if err != nil {
@@ -331,7 +332,7 @@ func (api *API) traceChain(start, end *types.Block, config *TraceConfig, closed 
 			number  uint64
 			traced  uint64
 			failed  error
-			statedb *state.StateDB
+			statedb state.StateDBI
 			release StateReleaseFunc
 		)
 		// Ensure everything is properly cleaned up on any exit path
@@ -629,9 +630,10 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 		// Generate the next state snapshot fast without tracing
 		msg, _ := tx.AsMessage(signer, block.BaseFee())
 		txctx := &Context{
-			BlockHash: blockHash,
-			TxIndex:   i,
-			TxHash:    tx.Hash(),
+			BlockHash:   blockHash,
+			BlockNumber: block.Number(),
+			TxIndex:     i,
+			TxHash:      tx.Hash(),
 		}
 		res, err := api.traceTx(ctx, msg, txctx, blockCtx, statedb, config)
 		if err != nil {
@@ -648,7 +650,7 @@ func (api *API) traceBlock(ctx context.Context, block *types.Block, config *Trac
 // traceBlockParallel is for tracers that have a high overhead (read JS tracers). One thread
 // runs along and executes txes without tracing enabled to generate their prestate.
 // Worker threads take the tasks and the prestate and trace them.
-func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, statedb *state.StateDB, config *TraceConfig) ([]*txTraceResult, error) {
+func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, statedb state.StateDBI, config *TraceConfig) ([]*txTraceResult, error) {
 	// Execute all the transaction contained within the block concurrently
 	var (
 		txs       = block.Transactions()
@@ -671,9 +673,10 @@ func (api *API) traceBlockParallel(ctx context.Context, block *types.Block, stat
 			for task := range jobs {
 				msg, _ := txs[task.index].AsMessage(signer, block.BaseFee())
 				txctx := &Context{
-					BlockHash: blockHash,
-					TxIndex:   task.index,
-					TxHash:    txs[task.index].Hash(),
+					BlockHash:   blockHash,
+					BlockNumber: block.Number(),
+					TxIndex:     task.index,
+					TxHash:      txs[task.index].Hash(),
 				}
 				res, err := api.traceTx(ctx, msg, txctx, blockCtx, task.statedb, config)
 				if err != nil {
@@ -874,9 +877,10 @@ func (api *API) TraceTransaction(ctx context.Context, hash common.Hash, config *
 	defer release()
 
 	txctx := &Context{
-		BlockHash: blockHash,
-		TxIndex:   int(index),
-		TxHash:    hash,
+		BlockHash:   blockHash,
+		BlockNumber: block.Number(),
+		TxIndex:     int(index),
+		TxHash:      hash,
 	}
 	return api.traceTx(ctx, msg, txctx, vmctx, statedb, config)
 }
@@ -943,7 +947,7 @@ func (api *API) TraceCall(ctx context.Context, args ethapi.TransactionArgs, bloc
 // traceTx configures a new tracer according to the provided configuration, and
 // executes the given message in the provided environment. The return value will
 // be tracer dependent.
-func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Context, vmctx vm.BlockContext, statedb *state.StateDB, config *TraceConfig) (interface{}, error) {
+func (api *API) traceTx(ctx context.Context, message core.Message, txctx *Context, vmctx vm.BlockContext, statedb state.StateDBI, config *TraceConfig) (interface{}, error) {
 	var (
 		tracer    Tracer
 		err       error

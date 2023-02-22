@@ -39,7 +39,7 @@ type BlockGen struct {
 	parent  *types.Block
 	chain   []*types.Block
 	header  *types.Header
-	statedb *state.StateDB
+	statedb state.StateDBI
 
 	gasPool     *GasPool
 	txs         []*types.Transaction
@@ -207,23 +207,31 @@ func (b *BlockGen) AddUncle(h *types.Header) {
 }
 
 // AddWithdrawal adds a withdrawal to the generated block.
-func (b *BlockGen) AddWithdrawal(w *types.Withdrawal) {
-	// The withdrawal will be assigned the next valid index.
-	var idx uint64
+// It returns the withdrawal index.
+func (b *BlockGen) AddWithdrawal(w *types.Withdrawal) uint64 {
+	cpy := *w
+	cpy.Index = b.nextWithdrawalIndex()
+	b.withdrawals = append(b.withdrawals, &cpy)
+	return cpy.Index
+}
+
+// nextWithdrawalIndex computes the index of the next withdrawal.
+func (b *BlockGen) nextWithdrawalIndex() uint64 {
+	if len(b.withdrawals) != 0 {
+		return b.withdrawals[len(b.withdrawals)-1].Index + 1
+	}
 	for i := b.i - 1; i >= 0; i-- {
 		if wd := b.chain[i].Withdrawals(); len(wd) != 0 {
-			idx = wd[len(wd)-1].Index + 1
-			break
+			return wd[len(wd)-1].Index + 1
 		}
 		if i == 0 {
-			// Correctly set the index if no parent had withdrawals
+			// Correctly set the index if no parent had withdrawals.
 			if wd := b.parent.Withdrawals(); len(wd) != 0 {
-				idx = wd[len(wd)-1].Index + 1
+				return wd[len(wd)-1].Index + 1
 			}
 		}
 	}
-	w.Index = idx
-	b.withdrawals = append(b.withdrawals, w)
+	return 0
 }
 
 // PrevBlock returns a previously generated block by number. It panics if
@@ -269,7 +277,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 	blocks, receipts := make(types.Blocks, n), make([]types.Receipts, n)
 	chainreader := &fakeChainReader{config: config}
-	genblock := func(i int, parent *types.Block, statedb *state.StateDB) (*types.Block, types.Receipts) {
+	genblock := func(i int, parent *types.Block, statedb state.StateDBI) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, chain: blocks, parent: parent, statedb: statedb, config: config, engine: engine}
 		b.header = makeHeader(chainreader, parent, statedb, b.engine)
 
@@ -345,7 +353,7 @@ func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, 
 	return db, blocks, receipts
 }
 
-func makeHeader(chain consensus.ChainReader, parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
+func makeHeader(chain consensus.ChainReader, parent *types.Block, state state.StateDBI, engine consensus.Engine) *types.Header {
 	var time uint64
 	if parent.Time() == 0 {
 		time = 10
