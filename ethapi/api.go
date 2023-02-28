@@ -36,6 +36,7 @@ import (
 	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/consensus/misc"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -877,7 +878,7 @@ type OverrideAccount struct {
 type StateOverride map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state vm.StateDB) error {
+func (diff *StateOverride) Apply(state state.StateDBI) error {
 	if diff == nil {
 		return nil
 	}
