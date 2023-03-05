@@ -67,6 +67,17 @@ func (i *HexOrDecimal256) MarshalText() ([]byte, error) {
 	return []byte(fmt.Sprintf("%#x", (*big.Int)(i))), nil
 }
 
+// UnmarshalJSON implements json.Unmarshaler.
+//
+// It is similar to UnmarshalText, but allows parsing real decimals too, not just
+// quoted decimal strings.
+func (i *HexOrDecimal256) UnmarshalJSON(input []byte) error {
+	if len(input) > 0 && input[0] == '"' {
+		input = input[1 : len(input)-1]
+	}
+	return i.UnmarshalText(input)
+}
+
 // Decimal256 unmarshals big.Int as a decimal string. When unmarshalling,
 // it however accepts either "0x"-prefixed (hex encoded) or non-prefixed (decimal)
 type Decimal256 big.Int

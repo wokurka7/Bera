@@ -96,3 +96,14 @@ func SafeMul(x, y uint64) (uint64, bool) {
 	hi, lo := bits.Mul64(x, y)
 	return lo, hi != 0
 }
+
+// UnmarshalJSON implements json.Unmarshaler.
+//
+// It is similar to UnmarshalText, but allows parsing real decimals too, not just
+// quoted decimal strings.
+func (i *HexOrDecimal64) UnmarshalJSON(input []byte) error {
+	if len(input) > 0 && input[0] == '"' {
+		input = input[1 : len(input)-1]
+	}
+	return i.UnmarshalText(input)
+}
