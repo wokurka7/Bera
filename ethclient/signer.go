@@ -56,6 +56,11 @@ func (s *senderFromServer) PubKey(tx *types.Transaction) ([]byte, error) {
 	return nil, nil
 }
 
+func (s *senderFromServer) Signature(tx *types.Transaction) ([]byte, error) {
+	// not implemented
+	return nil, nil
+}
+
 func (s *senderFromServer) ChainID() *big.Int {
 	panic("can't sign with senderFromServer")
 }
