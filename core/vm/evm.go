@@ -135,6 +135,7 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
+	evm.PrecompileManager = NewPrecompileManager(evm.chainRules)
 	return evm
 }
 
