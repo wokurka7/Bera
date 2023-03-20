@@ -99,7 +99,7 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, suppliedGas uin
 		return nil, 0, ErrOutOfGas
 	}
 	suppliedGas -= gasCost
-	output, err := p.Run(context.Background(), input, common.Address{}, new(big.Int), true)
+	output, err := p.Run(context.Background(), nil, input, common.Address{}, new(big.Int), true)
 	return output, suppliedGas, err
 }
 
