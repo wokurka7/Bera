@@ -56,7 +56,7 @@ func (pm *precompileManager) Get(addr common.Address) PrecompiledContract {
 
 // Run runs the given precompiled contract with the given input data and returns the remaining gas.
 func (pm *precompileManager) Run(
-	_ StateDB, p PrecompiledContract, input []byte,
+	evm PrecompileEVM, p PrecompiledContract, input []byte,
 	caller common.Address, value *big.Int, suppliedGas uint64, readonly bool,
 ) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
@@ -65,7 +65,7 @@ func (pm *precompileManager) Run(
 	}
 
 	suppliedGas -= gasCost
-	output, err := p.Run(context.Background(), input, caller, value, readonly)
+	output, err := p.Run(context.Background(), evm, input, caller, value, readonly)
 
 	return output, suppliedGas, err
 }

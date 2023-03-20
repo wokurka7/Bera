@@ -21,6 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/holiman/uint256"
 )
 
 // StateDB is an EVM database for full state querying.
@@ -38,3 +39,30 @@ type CallContext interface {
 	// Create creates a new contract
 	Create(env *EVM, me ContractRef, data []byte, gas, value *big.Int) ([]byte, common.Address, error)
 }
+
+type (
+	// PrecompileManager allows the EVM to execute a precompiled contract.
+	PrecompileManager interface {
+		// `Has` returns if a precompiled contract was found at `addr`.
+		Has(addr common.Address) bool
+
+		// `Get` returns the precompiled contract at `addr`. Returns nil if no
+		// contract is found at `addr`.
+		Get(addr common.Address) PrecompiledContract
+
+		// `Run` runs a precompiled contract and returns the remaining gas.
+		Run(evm PrecompileEVM, p PrecompiledContract, input []byte, caller common.Address,
+			value *big.Int, suppliedGas uint64, readonly bool,
+		) (ret []byte, remainingGas uint64, err error)
+	}
+
+	// PrecompileEVM is the interface through which stateful precompiles can call back into the EVM.
+	PrecompileEVM interface {
+		GetStateDB() StateDB
+
+		Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error)
+		StaticCall(caller ContractRef, addr common.Address, input []byte, gas uint64) (ret []byte, leftOverGas uint64, err error)
+		Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error)
+		Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *uint256.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error)
+	}
+)
