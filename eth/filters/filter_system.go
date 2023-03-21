@@ -452,11 +452,11 @@ func (es *EventSystem) handleRemovedLogs(filters filterIndex, ev core.RemovedLog
 	}
 }
 
-func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
-	for _, f := range filters[PendingTransactionsSubscription] {
-		f.txs <- ev.Txs
-	}
-}
+// func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
+// 	for _, f := range filters[PendingTransactionsSubscription] {
+// 		f.txs <- ev.Txs
+// 	}
+// }
 
 func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent) {
 	for _, f := range filters[BlocksSubscription] {
