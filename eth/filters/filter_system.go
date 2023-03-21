@@ -197,7 +197,7 @@ type EventSystem struct {
 	lastHead  *types.Header
 
 	// Subscriptions
-	txsSub         event.Subscription // Subscription for new transaction event
+	// txsSub         event.Subscription // Subscription for new transaction event
 	logsSub        event.Subscription // Subscription for new log event
 	rmLogsSub      event.Subscription // Subscription for removed log event
 	pendingLogsSub event.Subscription // Subscription for pending log event
@@ -599,8 +599,8 @@ func (es *EventSystem) eventLoop() {
 			close(f.err)
 
 		// System stopped
-		case <-es.txsSub.Err():
-			return
+		// case <-es.txsSub.Err():
+		// 	return
 		case <-es.logsSub.Err():
 			return
 		case <-es.rmLogsSub.Err():
