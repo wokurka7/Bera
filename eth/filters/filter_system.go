@@ -240,6 +240,7 @@ func NewEventSystem(sys *FilterSystem, lightMode bool) *EventSystem {
 	m.chainSub = m.backend.SubscribeChainEvent(m.chainCh)
 	m.pendingLogsSub = m.backend.SubscribePendingLogsEvent(m.pendingLogsCh)
 
+	// TODO: disable this check once m.txsSub is implemented
 	// // Make sure none of the subscriptions are empty
 	// if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil || m.pendingLogsSub == nil {
 	// 	log.Crit("Subscribe for event system failed")
