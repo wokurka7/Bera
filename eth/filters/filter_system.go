@@ -234,7 +234,7 @@ func NewEventSystem(sys *FilterSystem, lightMode bool) *EventSystem {
 	}
 
 	// Subscribe events
-	m.txsSub = m.backend.SubscribeNewTxsEvent(m.txsCh)
+	// m.txsSub = m.backend.SubscribeNewTxsEvent(m.txsCh)
 	m.logsSub = m.backend.SubscribeLogsEvent(m.logsCh)
 	m.rmLogsSub = m.backend.SubscribeRemovedLogsEvent(m.rmLogsCh)
 	m.chainSub = m.backend.SubscribeChainEvent(m.chainCh)
@@ -452,11 +452,11 @@ func (es *EventSystem) handleRemovedLogs(filters filterIndex, ev core.RemovedLog
 	}
 }
 
-func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
-	for _, f := range filters[PendingTransactionsSubscription] {
-		f.txs <- ev.Txs
-	}
-}
+// func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
+// 	for _, f := range filters[PendingTransactionsSubscription] {
+// 		f.txs <- ev.Txs
+// 	}
+// }
 
 func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent) {
 	for _, f := range filters[BlocksSubscription] {
@@ -553,7 +553,7 @@ func (es *EventSystem) lightFilterLogs(header *types.Header, addresses []common.
 func (es *EventSystem) eventLoop() {
 	// Ensure all subscriptions get cleaned up
 	defer func() {
-		es.txsSub.Unsubscribe()
+		// es.txsSub.Unsubscribe()
 		es.logsSub.Unsubscribe()
 		es.rmLogsSub.Unsubscribe()
 		es.pendingLogsSub.Unsubscribe()
@@ -567,8 +567,8 @@ func (es *EventSystem) eventLoop() {
 
 	for {
 		select {
-		case ev := <-es.txsCh:
-			es.handleTxsEvent(index, ev)
+		// case ev := <-es.txsCh:
+		// 	es.handleTxsEvent(index, ev)
 		case ev := <-es.logsCh:
 			es.handleLogs(index, ev)
 		case ev := <-es.rmLogsCh:
