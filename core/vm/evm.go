@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"errors"
 	"math/big"
 	"sync/atomic"
 
@@ -235,7 +236,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	// when we're in homestead this also counts for code storage gas errors.
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 		// TODO: consider clearing up unused snapshots:
@@ -290,7 +291,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
@@ -337,7 +338,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
@@ -395,7 +396,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
