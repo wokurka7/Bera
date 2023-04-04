@@ -403,8 +403,6 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 		return signedTx, nil
 	}
 
-	fmt.Println("SEND TRANSACTION")
-
 	if err := c.transactor.SendTransaction(ensureContext(opts.Context), signedTx); err != nil {
 		return nil, err
 	}
