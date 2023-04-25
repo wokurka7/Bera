@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -197,7 +198,7 @@ type EventSystem struct {
 	lastHead  *types.Header
 
 	// Subscriptions
-	// txsSub         event.Subscription // Subscription for new transaction event
+	txsSub         event.Subscription // Subscription for new transaction event
 	logsSub        event.Subscription // Subscription for new log event
 	rmLogsSub      event.Subscription // Subscription for removed log event
 	pendingLogsSub event.Subscription // Subscription for pending log event
@@ -234,17 +235,16 @@ func NewEventSystem(sys *FilterSystem, lightMode bool) *EventSystem {
 	}
 
 	// Subscribe events
-	// m.txsSub = m.backend.SubscribeNewTxsEvent(m.txsCh)
+	m.txsSub = m.backend.SubscribeNewTxsEvent(m.txsCh)
 	m.logsSub = m.backend.SubscribeLogsEvent(m.logsCh)
 	m.rmLogsSub = m.backend.SubscribeRemovedLogsEvent(m.rmLogsCh)
 	m.chainSub = m.backend.SubscribeChainEvent(m.chainCh)
 	m.pendingLogsSub = m.backend.SubscribePendingLogsEvent(m.pendingLogsCh)
 
-	// TODO: enable this check once m.txsSub is implemented
-	// // Make sure none of the subscriptions are empty
-	// if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil || m.pendingLogsSub == nil {
-	// 	log.Crit("Subscribe for event system failed")
-	// }
+	// Make sure none of the subscriptions are empty
+	if m.txsSub == nil || m.logsSub == nil || m.rmLogsSub == nil || m.chainSub == nil || m.pendingLogsSub == nil {
+		log.Crit("Subscribe for event system failed")
+	}
 
 	go m.eventLoop()
 	return m
@@ -452,11 +452,11 @@ func (es *EventSystem) handleRemovedLogs(filters filterIndex, ev core.RemovedLog
 	}
 }
 
-// func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
-// 	for _, f := range filters[PendingTransactionsSubscription] {
-// 		f.txs <- ev.Txs
-// 	}
-// }
+func (es *EventSystem) handleTxsEvent(filters filterIndex, ev core.NewTxsEvent) {
+	for _, f := range filters[PendingTransactionsSubscription] {
+		f.txs <- ev.Txs
+	}
+}
 
 func (es *EventSystem) handleChainEvent(filters filterIndex, ev core.ChainEvent) {
 	for _, f := range filters[BlocksSubscription] {
@@ -567,8 +567,8 @@ func (es *EventSystem) eventLoop() {
 
 	for {
 		select {
-		// case ev := <-es.txsCh:
-		// 	es.handleTxsEvent(index, ev)
+		case ev := <-es.txsCh:
+			es.handleTxsEvent(index, ev)
 		case ev := <-es.logsCh:
 			es.handleLogs(index, ev)
 		case ev := <-es.rmLogsCh:
@@ -599,8 +599,8 @@ func (es *EventSystem) eventLoop() {
 			close(f.err)
 
 		// System stopped
-		// case <-es.txsSub.Err():
-		// 	return
+		case <-es.txsSub.Err():
+			return
 		case <-es.logsSub.Err():
 			return
 		case <-es.rmLogsSub.Err():
