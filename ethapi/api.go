@@ -886,6 +886,9 @@ func (diff *StateOverride) Apply(state state.StateDBI) error {
 		// Override account nonce.
 		if account.Nonce != nil {
 			state.SetNonce(addr, uint64(*account.Nonce))
+			if err := state.Error(); err != nil {
+				return err
+			}
 		}
 		// Override account(contract) code.
 		if account.Code != nil {
@@ -894,6 +897,9 @@ func (diff *StateOverride) Apply(state state.StateDBI) error {
 		// Override account balance.
 		if account.Balance != nil {
 			state.SetBalance(addr, (*big.Int)(*account.Balance))
+			if err := state.Error(); err != nil {
+				return err
+			}
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
