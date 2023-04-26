@@ -151,9 +151,9 @@ const (
 	TxStatusIncluded
 )
 
-// blockChain provides the state of blockchain and current gas limit to do
+// BlockChain provides the state of blockchain and current gas limit to do
 // some pre checks in tx pool and event subscribers.
-type blockChain interface {
+type BlockChain interface {
 	CurrentBlock() *types.Header
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAtBlock(head *types.Header) (state.StateDBI, error)
@@ -245,7 +245,7 @@ func (config *Config) sanitize() Config {
 type TxPool struct {
 	config      Config
 	chainconfig *params.ChainConfig
-	chain       blockChain
+	chain       BlockChain
 	gasPrice    *big.Int
 	txFeed      event.Feed
 	scope       event.SubscriptionScope
@@ -289,7 +289,7 @@ type txpoolResetRequest struct {
 
 // NewTxPool creates a new transaction pool to gather, sort and filter inbound
 // transactions from the network.
-func NewTxPool(config Config, chainconfig *params.ChainConfig, chain blockChain) *TxPool {
+func NewTxPool(config Config, chainconfig *params.ChainConfig, chain BlockChain) *TxPool {
 	// Sanitize the input to ensure no vulnerable gas prices are set
 	config = (&config).sanitize()
 
