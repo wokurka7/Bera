@@ -323,6 +323,11 @@ func (bc *BlockChain) StateAt(root common.Hash) (state.StateDBI, error) {
 	return state.New(root, bc.stateCache, bc.snaps)
 }
 
+// StateAtBlock returns a new mutable state based on a particular point in time.
+func (bc *BlockChain) StateAtBlock(head *types.Header) (state.StateDBI, error) {
+	return bc.StateAt(head.Root)
+}
+
 // Config retrieves the chain's fork configuration.
 func (bc *BlockChain) Config() *params.ChainConfig { return bc.chainConfig }
 
