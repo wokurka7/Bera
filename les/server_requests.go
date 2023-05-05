@@ -178,7 +178,7 @@ func handleGetBlockHeaders(msg Decoder) (serveRequestFn, uint64, uint64, error) 
 						r.Query.Origin.Number = origin.Number.Uint64()
 					}
 				} else {
-					origin = bc.GetHeader(r.Query.Origin.Hash, r.Query.Origin.Number)
+					origin = bc.GetHeader(nil, r.Query.Origin.Hash, r.Query.Origin.Number)
 				}
 			} else {
 				origin = bc.GetHeaderByNumber(r.Query.Origin.Number)

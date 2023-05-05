@@ -459,7 +459,7 @@ func (f *lightFetcher) mainloop() {
 						break
 					}
 					untrusted = append(untrusted, hash)
-					head = f.chain.GetHeader(head.ParentHash, number-1)
+					head = f.chain.GetHeader(nil, head.ParentHash, number-1)
 					if head == nil {
 						break // all the synced headers will be dropped
 					}

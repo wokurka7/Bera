@@ -189,7 +189,7 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg *core.Message, state sta
 		vmConfig = new(vm.Config)
 	}
 	txContext := core.NewEVMTxContext(msg)
-	context := core.NewEVMBlockContext(header, b.eth.blockchain, nil)
+	context := core.NewEVMBlockContext(nil, header, b.eth.blockchain, nil)
 	return vm.NewEVM(context, txContext, state, b.eth.chainConfig, *vmConfig), state.Error, nil
 }
 

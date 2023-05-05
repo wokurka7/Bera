@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	crand "crypto/rand"
 	"errors"
 	"fmt"
@@ -168,7 +169,7 @@ func (hc *HeaderChain) Reorg(headers []*types.Header) error {
 				break // It shouldn't be reached
 			}
 			headHash, headNumber = header.ParentHash, header.Number.Uint64()-1
-			header = hc.GetHeader(headHash, headNumber)
+			header = hc.GetHeader(nil, headHash, headNumber)
 			if header == nil {
 				return fmt.Errorf("missing parent %d %x", headNumber, headHash)
 			}
@@ -404,7 +405,7 @@ func (hc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, ma
 	}
 	if ancestor == 1 {
 		// in this case it is cheaper to just read the header
-		if header := hc.GetHeader(hash, number); header != nil {
+		if header := hc.GetHeader(nil, hash, number); header != nil {
 			return header.ParentHash, number - 1
 		}
 		return common.Hash{}, 0
@@ -422,7 +423,7 @@ func (hc *HeaderChain) GetAncestor(hash common.Hash, number, ancestor uint64, ma
 		}
 		*maxNonCanonical--
 		ancestor--
-		header := hc.GetHeader(hash, number)
+		header := hc.GetHeader(nil, hash, number)
 		if header == nil {
 			return common.Hash{}, 0
 		}
@@ -450,7 +451,7 @@ func (hc *HeaderChain) GetTd(hash common.Hash, number uint64) *big.Int {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (hc *HeaderChain) GetHeader(hash common.Hash, number uint64) *types.Header {
+func (hc *HeaderChain) GetHeader(_ context.Context, hash common.Hash, number uint64) *types.Header {
 	// Short circuit if the header's already in the cache, retrieve otherwise
 	if header, ok := hc.headerCache.Get(hash); ok {
 		return header
@@ -471,7 +472,7 @@ func (hc *HeaderChain) GetHeaderByHash(hash common.Hash) *types.Header {
 	if number == nil {
 		return nil
 	}
-	return hc.GetHeader(hash, *number)
+	return hc.GetHeader(nil, hash, *number)
 }
 
 // HasHeader checks if a block header is present in the database or not.
@@ -491,7 +492,7 @@ func (hc *HeaderChain) GetHeaderByNumber(number uint64) *types.Header {
 	if hash == (common.Hash{}) {
 		return nil
 	}
-	return hc.GetHeader(hash, number)
+	return hc.GetHeader(nil, hash, number)
 }
 
 // GetHeadersFrom returns a contiguous segment of headers, in rlp-form, going
@@ -606,7 +607,7 @@ func (hc *HeaderChain) setHead(headBlock uint64, headTime uint64, updateFn Updat
 		num := hdr.Number.Uint64()
 
 		// Rewind chain to new head
-		parent := hc.GetHeader(hdr.ParentHash, num-1)
+		parent := hc.GetHeader(nil, hdr.ParentHash, num-1)
 		if parent == nil {
 			parent = hc.genesisHeader
 		}

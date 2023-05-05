@@ -630,7 +630,7 @@ func (api *ConsensusAPI) checkInvalidAncestor(check common.Hash, head common.Has
 	}
 	// If the last valid hash is the terminal pow block, return 0x0 for latest valid hash
 	lastValid := &invalid.ParentHash
-	if header := api.eth.BlockChain().GetHeader(invalid.ParentHash, invalid.Number.Uint64()-1); header != nil && header.Difficulty.Sign() != 0 {
+	if header := api.eth.BlockChain().GetHeader(nil, invalid.ParentHash, invalid.Number.Uint64()-1); header != nil && header.Difficulty.Sign() != 0 {
 		lastValid = &common.Hash{}
 	}
 	failure := "links to previously rejected block"
@@ -749,7 +749,7 @@ func (api *ConsensusAPI) heartbeat() {
 					current   = head
 				)
 				for i := 0; i < 64; i++ {
-					parent := chain.GetHeader(current.ParentHash, current.Number.Uint64()-1)
+					parent := chain.GetHeader(nil, current.ParentHash, current.Number.Uint64()-1)
 					if parent == nil {
 						break
 					}

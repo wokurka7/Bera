@@ -17,6 +17,7 @@
 package core
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -70,8 +71,8 @@ func (bc *BlockChain) HasHeader(hash common.Hash, number uint64) bool {
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (bc *BlockChain) GetHeader(hash common.Hash, number uint64) *types.Header {
-	return bc.hc.GetHeader(hash, number)
+func (bc *BlockChain) GetHeader(_ context.Context, hash common.Hash, number uint64) *types.Header {
+	return bc.hc.GetHeader(nil, hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if

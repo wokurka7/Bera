@@ -353,7 +353,7 @@ func (lc *LightChain) Rollback(chain []common.Hash) {
 		// to low, so it's safe the update in-memory markers directly.
 		if head := lc.hc.CurrentHeader(); head.Hash() == hash {
 			rawdb.WriteHeadHeaderHash(batch, head.ParentHash)
-			lc.hc.SetCurrentHeader(lc.GetHeader(head.ParentHash, head.Number.Uint64()-1))
+			lc.hc.SetCurrentHeader(lc.GetHeader(nil, head.ParentHash, head.Number.Uint64()-1))
 		}
 	}
 	if err := batch.Write(); err != nil {
@@ -472,8 +472,8 @@ func (lc *LightChain) GetTdOdr(ctx context.Context, hash common.Hash, number uin
 
 // GetHeader retrieves a block header from the database by hash and number,
 // caching it if found.
-func (lc *LightChain) GetHeader(hash common.Hash, number uint64) *types.Header {
-	return lc.hc.GetHeader(hash, number)
+func (lc *LightChain) GetHeader(_ context.Context, hash common.Hash, number uint64) *types.Header {
+	return lc.hc.GetHeader(nil, hash, number)
 }
 
 // GetHeaderByHash retrieves a block header from the database by hash, caching it if

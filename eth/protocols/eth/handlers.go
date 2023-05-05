@@ -75,7 +75,7 @@ func serviceNonContiguousBlockHeaderQuery(chain *core.BlockChain, query *GetBloc
 					query.Origin.Number = origin.Number.Uint64()
 				}
 			} else {
-				origin = chain.GetHeader(query.Origin.Hash, query.Origin.Number)
+				origin = chain.GetHeader(nil, query.Origin.Hash, query.Origin.Number)
 			}
 		} else {
 			origin = chain.GetHeaderByNumber(query.Origin.Number)

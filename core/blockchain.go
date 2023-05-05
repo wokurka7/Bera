@@ -1722,7 +1722,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, verifySeals, setHead bool)
 		start := time.Now()
 		parent := it.previous()
 		if parent == nil {
-			parent = bc.GetHeader(block.ParentHash(), block.NumberU64()-1)
+			parent = bc.GetHeader(nil, block.ParentHash(), block.NumberU64()-1)
 		}
 		statedb, err := state.New(parent.Root, bc.stateCache, bc.snaps)
 		if err != nil {
@@ -1959,7 +1959,7 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator) (i
 		hashes = append(hashes, parent.Hash())
 		numbers = append(numbers, parent.Number.Uint64())
 
-		parent = bc.GetHeader(parent.ParentHash, parent.Number.Uint64()-1)
+		parent = bc.GetHeader(nil, parent.ParentHash, parent.Number.Uint64()-1)
 	}
 	if parent == nil {
 		return it.index, errors.New("missing parent")
