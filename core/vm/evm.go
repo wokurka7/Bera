@@ -171,6 +171,10 @@ func (evm *EVM) GetStateDB() StateDB {
 	return evm.StateDB
 }
 
+func (evm *EVM) GetContext() *BlockContext {
+	return &evm.Context
+}
+
 // Call executes the contract associated with the addr with the given input as
 // parameters. It also handles any necessary value transfer required and takes
 // the necessary steps to create accounts and reverses the state in case of an
