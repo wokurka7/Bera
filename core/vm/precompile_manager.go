@@ -54,8 +54,11 @@ func (pm *precompileManager) Get(addr common.Address) PrecompiledContract {
 	return pm.precompiles[addr]
 }
 
+// GetActive sets the chain rules on the precompile manager and returns the list of active
+// precompile addresses.
 func (pm *precompileManager) GetActive(rules *params.Rules) []common.Address {
-	return ActivePrecompiles(rules)
+	pm.rules = rules
+	return ActivePrecompiles(pm.rules)
 }
 
 // Run runs the given precompiled contract with the given input data and returns the remaining gas.
