@@ -121,16 +121,26 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
-	evm.PrecompileManager = NewPrecompileManager(evm.chainRules)
+	evm.PrecompileManager = NewPrecompileManager(&evm.chainRules)
 	return evm
 }
 
+// NewEVMWithPrecompiles returns a new EVM with a precompile manager. The returned EVM is not
+// thread safe and should only ever be used *once*.
 func NewEVMWithPrecompiles(
 	blockCtx BlockContext, txCtx TxContext, statedb StateDB,
-	chainConfig *params.ChainConfig, config Config, precompileController PrecompileManager,
+	chainConfig *params.ChainConfig, config Config, precompileManager PrecompileManager,
 ) *EVM {
-	evm := NewEVM(blockCtx, txCtx, statedb, chainConfig, config)
-	evm.PrecompileManager = precompileController
+	evm := &EVM{
+		Context:     blockCtx,
+		TxContext:   txCtx,
+		StateDB:     statedb,
+		Config:      config,
+		chainConfig: chainConfig,
+		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
+	}
+	evm.interpreter = NewEVMInterpreter(evm)
+	evm.PrecompileManager = precompileManager
 	return evm
 }
 

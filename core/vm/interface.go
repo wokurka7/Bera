@@ -21,6 +21,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
 )
 
@@ -49,6 +50,8 @@ type (
 		// `Get` returns the precompiled contract at `addr`. Returns nil if no
 		// contract is found at `addr`.
 		Get(addr common.Address) PrecompiledContract
+
+		GetActive(*params.Rules) []common.Address
 
 		// `Run` runs a precompiled contract and returns the remaining gas.
 		Run(evm PrecompileEVM, p PrecompiledContract, input []byte, caller common.Address,

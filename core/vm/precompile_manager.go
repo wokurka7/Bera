@@ -26,12 +26,12 @@ import (
 
 // precompileManager is used as a default PrecompileManager for the EVM.
 type precompileManager struct {
-	rules       params.Rules
+	rules       *params.Rules
 	precompiles map[common.Address]PrecompiledContract
 }
 
 // NewPrecompileManager returns a new PrecompileManager for the current chain rules.
-func NewPrecompileManager(rules params.Rules) PrecompileManager {
+func NewPrecompileManager(rules *params.Rules) PrecompileManager {
 	return &precompileManager{
 		rules: rules,
 	}
@@ -40,7 +40,7 @@ func NewPrecompileManager(rules params.Rules) PrecompileManager {
 // Has returns whether a precompiled contract is deployed at the given address.
 func (pm *precompileManager) Has(addr common.Address) bool {
 	if pm.precompiles == nil {
-		pm.precompiles = pm.activePrecompiles()
+		pm.precompiles = activePrecompiles(pm.rules)
 	}
 	_, found := pm.precompiles[addr]
 	return found
@@ -49,9 +49,13 @@ func (pm *precompileManager) Has(addr common.Address) bool {
 // Get returns the precompiled contract deployed at the given address.
 func (pm *precompileManager) Get(addr common.Address) PrecompiledContract {
 	if pm.precompiles == nil {
-		pm.precompiles = pm.activePrecompiles()
+		pm.precompiles = activePrecompiles(pm.rules)
 	}
 	return pm.precompiles[addr]
+}
+
+func (pm *precompileManager) GetActive(rules *params.Rules) []common.Address {
+	return ActivePrecompiles(rules)
 }
 
 // Run runs the given precompiled contract with the given input data and returns the remaining gas.
@@ -70,14 +74,14 @@ func (pm *precompileManager) Run(
 	return output, suppliedGas, err
 }
 
-// activePrecompiles returns the precompiled contracts for the current chain rules.
-func (pm *precompileManager) activePrecompiles() map[common.Address]PrecompiledContract {
+// activePrecompiles returns the precompiled contracts for the given chain rules.
+func activePrecompiles(rules *params.Rules) map[common.Address]PrecompiledContract {
 	switch {
-	case pm.rules.IsBerlin:
+	case rules.IsBerlin:
 		return PrecompiledContractsBerlin
-	case pm.rules.IsIstanbul:
+	case rules.IsIstanbul:
 		return PrecompiledContractsIstanbul
-	case pm.rules.IsByzantium:
+	case rules.IsByzantium:
 		return PrecompiledContractsByzantium
 	default:
 		return PrecompiledContractsHomestead
