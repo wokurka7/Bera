@@ -156,3 +156,11 @@ func ApplyTransaction(config *params.ChainConfig, bc ChainContext, author *commo
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
 	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
 }
+
+func ApplyTransactionWithEVM(vmenv *vm.EVM, config *params.ChainConfig, gp *GasPool, statedb state.StateDBI, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, error) {
+	msg, err := TransactionToMessage(tx, types.MakeSigner(config, header.Number), header.BaseFee)
+	if err != nil {
+		return nil, err
+	}
+	return applyTransaction(msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas, vmenv)
+}
