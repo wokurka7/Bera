@@ -100,8 +100,8 @@ type StateDBI interface {
 	SetStorage(addr common.Address, storage map[common.Hash]common.Hash)
 	Finalise(deleteEmptyObjects bool)
 	Commit(deleteEmptyObjects bool) (common.Hash, error)
-	Copy() StateDBI
-	SetTxContext(thash common.Hash, ti int)
+	Copy() *StateDB
+	Prepare(thash common.Hash, ti int)
 	StopPrefetcher()
 	StartPrefetcher(namespace string)
 	IntermediateRoot(deleteEmptyObjects bool) common.Hash

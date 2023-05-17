@@ -88,7 +88,7 @@ var (
 type environment struct {
 	signer types.Signer
 
-	state     state.StateDBI          // apply state changes here
+	state     *state.StateDB          // apply state changes here
 	ancestors mapset.Set[common.Hash] // ancestor set (used for checking uncle parent validity)
 	family    mapset.Set[common.Hash] // family set (used for checking uncle invalidity)
 	tcount    int                     // tx count in cycle
@@ -381,7 +381,7 @@ func (w *worker) enablePreseal() {
 }
 
 // pending returns the pending state and corresponding block.
-func (w *worker) pending() (*types.Block, state.StateDBI) {
+func (w *worker) pending() (*types.Block, *state.StateDB) {
 	// return a snapshot to avoid contention on currentMu mutex
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
@@ -914,7 +914,7 @@ func (w *worker) commitTransactions(env *environment, txs *types.TransactionsByP
 			continue
 		}
 		// Start executing the transaction
-		env.state.SetTxContext(tx.Hash(), env.tcount)
+		env.state.Prepare(tx.Hash(), env.tcount)
 
 		logs, err := w.commitTransaction(env, tx)
 		switch {
