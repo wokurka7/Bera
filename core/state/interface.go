@@ -73,8 +73,6 @@ type StateDBI interface {
 	AddSlotToAccessList(addr common.Address, slot common.Hash)
 	PrepareForTx(rules params.Rules, sender, coinbase common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList)
 
-	Prepare(hash common.Hash, number int)
-
 	RevertToSnapshot(int)
 	Snapshot() int
 
@@ -103,6 +101,7 @@ type StateDBI interface {
 	Finalise(deleteEmptyObjects bool)
 	Commit(deleteEmptyObjects bool) (common.Hash, error)
 	Copy() StateDBI
+	SetTxContext(thash common.Hash, ti int)
 	StopPrefetcher()
 	StartPrefetcher(namespace string)
 	IntermediateRoot(deleteEmptyObjects bool) common.Hash

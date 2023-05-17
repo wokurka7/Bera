@@ -179,7 +179,7 @@ func Call(address common.Address, input []byte, cfg *Config) ([]byte, uint64, er
 	// Execute the preparatory steps for state transition which includes:
 	// - prepare accessList(post-berlin)
 	// - reset transient storage(eip 1153)
-	statedb.PrepareForTx(rules, cfg.Origin, cfg.Coinbase, &address, vmenv.PrecompileManager.GetActive(&rules), nil)
+	statedb.SetTxContextForTx(rules, cfg.Origin, cfg.Coinbase, &address, vmenv.PrecompileManager.GetActive(&rules), nil)
 
 	// Call the code with the given configuration.
 	ret, leftOverGas, err := vmenv.Call(
