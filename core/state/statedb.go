@@ -36,8 +36,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
-var _ StateDBI = (*StateDB)(nil)
-
 type revision struct {
 	id           int
 	journalIndex int

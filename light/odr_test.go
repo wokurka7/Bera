@@ -154,7 +154,7 @@ func odrAccounts(ctx context.Context, db ethdb.Database, bc *core.BlockChain, lc
 	dummyAddr := common.HexToAddress("1234567812345678123456781234567812345678")
 	acc := []common.Address{testBankAddress, acc1Addr, acc2Addr, dummyAddr}
 
-	var st state.StateDBI
+	var st *state.StateDB
 	if bc == nil {
 		header := lc.GetHeaderByHash(bhash)
 		st = NewState(ctx, header, lc.Odr())
@@ -183,7 +183,7 @@ func odrContractCall(ctx context.Context, db ethdb.Database, bc *core.BlockChain
 		data[35] = byte(i)
 
 		var (
-			st     state.StateDBI
+			st     *state.StateDB
 			header *types.Header
 			chain  core.ChainContext
 		)

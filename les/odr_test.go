@@ -92,7 +92,7 @@ func odrAccounts(ctx context.Context, db ethdb.Database, config *params.ChainCon
 
 	var (
 		res []byte
-		st  state.StateDBI
+		st  *state.StateDB
 		err error
 	)
 	for _, addr := range acc {

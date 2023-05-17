@@ -244,7 +244,7 @@ func (st *StateTransition) buyGas() error {
 
 	st.initialGas = st.msg.GasLimit
 	st.state.SubBalance(st.msg.From, mgval)
-	return st.state.Error()
+	return nil
 }
 
 func (st *StateTransition) preCheck() error {
@@ -372,9 +372,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 	} else {
 		// Increment the nonce for the next transaction
 		st.state.SetNonce(msg.From, st.state.GetNonce(sender.Address())+1)
-		if err := st.state.Error(); err != nil {
-			return nil, err
-		}
 		ret, st.gasRemaining, vmerr = st.evm.Call(sender, st.to(), msg.Data, st.gasRemaining, msg.Value)
 	}
 
@@ -398,9 +395,6 @@ func (st *StateTransition) TransitionDb() (*ExecutionResult, error) {
 		fee := new(big.Int).SetUint64(st.gasUsed())
 		fee.Mul(fee, effectiveTip)
 		st.state.AddBalance(st.evm.Context.Coinbase, fee)
-		if err := st.state.Error(); err != nil {
-			return nil, err
-		}
 	}
 
 	return &ExecutionResult{

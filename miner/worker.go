@@ -150,7 +150,7 @@ func (env *environment) discard() {
 // task contains all information for consensus engine sealing and result submitting.
 type task struct {
 	receipts  []*types.Receipt
-	state     state.StateDBI
+	state     *state.StateDB
 	block     *types.Block
 	createdAt time.Time
 }
@@ -236,7 +236,7 @@ type worker struct {
 	snapshotMu       sync.RWMutex // The lock used to protect the snapshots below
 	snapshotBlock    *types.Block
 	snapshotReceipts types.Receipts
-	snapshotState    state.StateDBI
+	snapshotState    *state.StateDB
 
 	// atomic status counters
 	running int32 // The indicator whether the consensus engine is running or not.
