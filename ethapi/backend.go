@@ -99,7 +99,7 @@ type Backend interface {
 	ServiceFilter(ctx context.Context, session *bloombits.MatcherSession)
 }
 
-func GetAPIs(apiBackend Backend, chain *core.BlockChain) []rpc.API {
+func GetAPIs(apiBackend Backend, chain core.ChainContext) []rpc.API {
 	nonceLock := new(AddrLocker)
 	return []rpc.API{
 		{

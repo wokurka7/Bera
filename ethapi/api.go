@@ -2112,15 +2112,15 @@ func toHexSlice(b [][]byte) []string {
 // BundleAPI offers an API for accepting bundled transactions
 type BundleAPI struct {
 	b     Backend
-	chain *core.BlockChain
+	chain core.ChainContext
 }
 
 // NewBundleAPI creates a new Tx Bundle API instance.
-func NewBundleAPI(b Backend, chain *core.BlockChain) *BundleAPI {
+func NewBundleAPI(b Backend, chain core.ChainContext) *BundleAPI {
 	return &BundleAPI{b, chain}
 }
 
-// CallBundleArgs represents the arguments for a call.
+// CallBundleArgs represents the arguinterface ments for a call.
 type CallBundleArgs struct {
 	Txs                    []hexutil.Bytes       `json:"txs"`
 	BlockNumber            rpc.BlockNumber       `json:"blockNumber"`
