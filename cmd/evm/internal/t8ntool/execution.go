@@ -175,7 +175,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		}
 		vmConfig.Tracer = tracer
 		vmConfig.Debug = (tracer != nil)
-		statedb.SetTxContext(tx.Hash(), txIndex)
+		statedb.Prepare(tx.Hash(), txIndex)
 
 		var (
 			txContext = core.NewEVMTxContext(msg)

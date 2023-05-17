@@ -222,7 +222,7 @@ func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block,
 		if err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("failed to get evm: %v", err)
 		}
-		statedb.SetTxContext(tx.Hash(), idx)
+		statedb.Prepare(tx.Hash(), idx)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 		}
