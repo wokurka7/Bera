@@ -2267,6 +2267,11 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		rules := s.b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
 
 		msg, err := core.TransactionToMessage(tx, types.MakeSigner(cfg, header.Number, header.Time), header.BaseFee)
+
+		if err != nil {
+			return nil, err
+		}
+
 		state.Prepare(rules, msg.From, coinbase, msg.To, vm.ActivePrecompiles(rules), nil)
 
 		receipt, result, err := core.ApplyTransactionWithResult(s.b.ChainConfig(), s.chain, &coinbase, gp, state, header, tx, &header.GasUsed, vmconfig)
@@ -2429,6 +2434,11 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 		rules := s.b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
 
 		msg, err := core.TransactionToMessage(txArgs.toTransaction(), types.MakeSigner(cfg, header.Number, header.Time), header.BaseFee)
+
+		if err != nil {
+			return nil, err
+		}
+
 		state.Prepare(rules, msg.From, coinbase, msg.To, vm.ActivePrecompiles(rules), nil)
 
 		// Convert tx args to msg to apply state transition
