@@ -2213,7 +2213,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	vmconfig := vm.Config{}
+	vmConfig := vm.Config{}
 
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
@@ -2226,11 +2226,26 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	signer := types.MakeSigner(s.b.ChainConfig(), blockNumber)
 	var totalGasUsed uint64
 	gasFees := new(big.Int)
+
+	msg, err := core.TransactionToMessage(txs[0], signer, header.BaseFee)
+
+	if err != nil {
+		return nil, err
+	}
+
+	blockCtx := core.NewEVMBlockContext(header, s.chain, nil)
+	txCtx := core.NewEVMTxContext(msg)
+	chainConfig := s.b.ChainConfig()
+	rules := chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time)
+	chainRules := vm.NewPrecompileManager(&rules)
+
+	evm := vm.NewEVMWithPrecompiles(blockCtx, txCtx, state, chainConfig, vmConfig, chainRules)
+
 	for i, tx := range txs {
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
 
-		receipt, result, err := core.ApplyTransactionWithResult(s.b.ChainConfig(), s.chain, &coinbase, gp, state, header, tx, &header.GasUsed, vmconfig)
+		receipt, result, err := core.ApplyTransactionWithEVMWithResult(evm, s.b.ChainConfig(), s.chain, &coinbase, gp, state, header, tx, &header.GasUsed)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
 		}

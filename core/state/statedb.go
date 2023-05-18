@@ -939,7 +939,7 @@ func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	return s.trie.Hash()
 }
 
-// Prepare sets the current transaction hash and index which are
+// SetTxContext sets the current transaction hash and index which are
 // used when the EVM emits new state logs. It should be invoked before
 // transaction execution.
 func (s *StateDB) SetTxContext(thash common.Hash, ti int) {
@@ -1080,7 +1080,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	return root, nil
 }
 
-// PrepareForTx handles the preparatory steps for executing a state transition with.
+// Prepare handles the preparatory steps for executing a state transition with.
 // This method must be invoked before state transition.
 //
 // Berlin fork:
