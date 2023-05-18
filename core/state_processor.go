@@ -142,7 +142,7 @@ func applyTransaction(msg *Message, config *params.ChainConfig, gp *GasPool, sta
 	return receipt, err
 }
 
-func applyTransactionWithResult(msg *Message, config *params.ChainConfig, bc ChainContext, author *common.Address, gp *GasPool, statedb state.StateDBI, header *types.Header, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, *ExecutionResult, error) {
+func applyTransactionWithResult(msg *Message, config *params.ChainConfig, author *common.Address, gp *GasPool, statedb state.StateDBI, header *types.Header, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, *ExecutionResult, error) {
 	// Create a new context to be used in the EVM environment.
 	txContext := NewEVMTxContext(msg)
 	evm.Reset(txContext, statedb)
@@ -210,7 +210,7 @@ func ApplyTransactionWithResult(config *params.ChainConfig, bc ChainContext, aut
 	// Create a new context to be used in the EVM environment
 	blockContext := NewEVMBlockContext(header, bc, author)
 	vmenv := vm.NewEVM(blockContext, vm.TxContext{}, statedb, config, cfg)
-	return applyTransactionWithResult(msg, config, bc, author, gp, statedb, header, tx, usedGas, vmenv)
+	return applyTransactionWithResult(msg, config, author, gp, statedb, header, tx, usedGas, vmenv)
 }
 
 func ApplyTransactionWithEVM(vmenv *vm.EVM, config *params.ChainConfig, gp *GasPool, statedb state.StateDBI, header *types.Header, tx *types.Transaction, usedGas *uint64) (*types.Receipt, error) {
@@ -226,5 +226,5 @@ func ApplyTransactionWithEVMWithResult(vmenv *vm.EVM, config *params.ChainConfig
 	if err != nil {
 		return nil, nil, err
 	}
-	return applyTransactionWithResult(msg, config, bc, author, gp, statedb, header, tx, usedGas, vmenv)
+	return applyTransactionWithResult(msg, config, author, gp, statedb, header, tx, usedGas, vmenv)
 }
