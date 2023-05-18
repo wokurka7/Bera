@@ -2107,9 +2107,11 @@ func toHexSlice(b [][]byte) []string {
 	return r
 }
 
-// ---------------------------------------------------------------- FlashBots ----------------------------------------------------------------
+// --------------------------------------- FlashBots ------------------------------------------- //
 
-// BundleAPI offers an API for accepting bundled transactions
+// BundleAPI offers an API for accepting bundled transactions. The BundleAPI has been heavily
+// inspired by the original mev-geth implementation.
+// (https://github.com/flashbots/mev-geth/blob/master/internal/ethapi/api.go#L2038)
 type BundleAPI struct {
 	b     Backend
 	chain core.ChainContext
@@ -2148,7 +2150,6 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	}
 
 	var txs types.Transactions
-
 	for _, encodedTx := range args.Txs {
 		tx := new(types.Transaction)
 		if err := tx.UnmarshalBinary(encodedTx); err != nil {
@@ -2213,8 +2214,6 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	// this makes sure resources are cleaned up.
 	defer cancel()
 
-	vmConfig := vm.Config{}
-
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
@@ -2228,26 +2227,25 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	gasFees := new(big.Int)
 
 	msg, err := core.TransactionToMessage(txs[0], signer, header.BaseFee)
-
 	if err != nil {
 		return nil, err
 	}
 
-	blockCtx := core.NewEVMBlockContext(header, s.chain, nil)
-	txCtx := core.NewEVMTxContext(msg)
-	chainConfig := s.b.ChainConfig()
-	rules := chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time)
-	chainRules := vm.NewPrecompileManager(&rules)
-
-	evm := vm.NewEVMWithPrecompiles(blockCtx, txCtx, state, chainConfig, vmConfig, chainRules)
+	vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{})
+	if err != nil {
+		return nil, err
+	}
 
 	for i, tx := range txs {
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
 
-		receipt, result, err := core.ApplyTransactionWithEVMWithResult(evm, s.b.ChainConfig(), s.chain, &coinbase, gp, state, header, tx, &header.GasUsed)
+		receipt, result, err := core.ApplyTransactionWithEVMWithResult(vmenv, s.b.ChainConfig(), &coinbase, gp, state, header, tx, &header.GasUsed)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
+		}
+		if err := vmError(); err != nil {
+			return nil, fmt.Errorf("execution error: %v", err)
 		}
 
 		txHash := tx.Hash().String()
@@ -2375,14 +2373,8 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 	// Results
 	results := []map[string]interface{}{}
 
-	// Copy the original db so we don't modify it
-	statedb := state.Copy()
-
 	// Gas pool
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
-
-	// Block context
-	blockContext := core.NewEVMBlockContext(header, s.chain, &coinbase)
 
 	// Feed each of the transactions into the VM ctx
 	// And try and estimate the gas used
@@ -2393,7 +2385,7 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 		rand.Read(randomHash[:])
 
 		// New random hash since its a call
-		statedb.SetTxContext(randomHash, i)
+		state.SetTxContext(randomHash, i)
 
 		// Convert tx args to msg to apply state transition
 		msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
@@ -2401,11 +2393,11 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 			return nil, err
 		}
 
-		// Prepare the hashes
-		txContext := core.NewEVMTxContext(msg)
-
 		// Get EVM Environment
-		vmenv := vm.NewEVM(blockContext, txContext, statedb, s.b.ChainConfig(), vm.Config{NoBaseFee: true})
+		vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true})
+		if err != nil {
+			return nil, err
+		}
 
 		// Apply state transition
 		result, err := core.ApplyMessage(vmenv, msg, gp)
@@ -2413,9 +2405,14 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 			return nil, err
 		}
 
+		// Check for the vm error
+		if err := vmError(); err != nil {
+			return nil, fmt.Errorf("execution error: %v", err)
+		}
+
 		// Modifications are committed to the state
 		// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
-		statedb.Finalise(vmenv.ChainConfig().IsEIP158(blockNumber))
+		state.Finalise(vmenv.ChainConfig().IsEIP158(blockNumber))
 
 		// Append result
 		jsonResult := map[string]interface{}{
