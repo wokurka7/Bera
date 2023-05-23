@@ -40,6 +40,7 @@ import (
 	"github.com/ethereum/go-ethereum/miner"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/gofrs/uuid"
 )
 
 // EthAPIBackend implements ethapi.Backend for full nodes
@@ -263,6 +264,10 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 
 func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.AddLocal(signedTx)
+}
+
+func (b *EthAPIBackend) SendBundle(ctx context.Context, txs types.Transactions, blockNumber rpc.BlockNumber, uuid uuid.UUID, signingAddress common.Address, minTimestamp uint64, maxTimestamp uint64, revertingTxHashes []common.Hash) error {
+	return b.eth.txPool.AddMevBundle(txs, big.NewInt(blockNumber.Int64()), uuid, signingAddress, minTimestamp, maxTimestamp, revertingTxHashes)
 }
 
 func (b *EthAPIBackend) GetPoolTransactions() (types.Transactions, error) {

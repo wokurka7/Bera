@@ -47,6 +47,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/gofrs/uuid"
 	"github.com/tyler-smith/go-bip39"
 	"golang.org/x/crypto/sha3"
 )
@@ -2108,6 +2109,67 @@ func toHexSlice(b [][]byte) []string {
 }
 
 // --------------------------------------- FlashBots ------------------------------------------- //
+type PrivateTxBundleAPI struct {
+	b Backend
+}
+
+// NewPrivateTxBundleAPI creates a new Tx Bundle API instance.
+func NewPrivateTxBundleAPI(b Backend) *PrivateTxBundleAPI {
+	return &PrivateTxBundleAPI{b}
+}
+
+// SendBundleArgs represents the arguments for a SendBundle call.
+type SendBundleArgs struct {
+	Txs               []hexutil.Bytes `json:"txs"`
+	BlockNumber       rpc.BlockNumber `json:"blockNumber"`
+	ReplacementUuid   *uuid.UUID      `json:"replacementUuid"`
+	SigningAddress    *common.Address `json:"signingAddress"`
+	MinTimestamp      *uint64         `json:"minTimestamp"`
+	MaxTimestamp      *uint64         `json:"maxTimestamp"`
+	RevertingTxHashes []common.Hash   `json:"revertingTxHashes"`
+}
+
+// SendBundle will add the signed transaction to the transaction pool.
+// The sender is responsible for signing the transaction and using the correct nonce and ensuring validity
+func (s *PrivateTxBundleAPI) SendBundle(ctx context.Context, args SendBundleArgs) error {
+	var txs types.Transactions
+	if len(args.Txs) == 0 {
+		return errors.New("bundle missing txs")
+	}
+	if args.BlockNumber == 0 {
+		return errors.New("bundle missing blockNumber")
+	}
+
+	for _, encodedTx := range args.Txs {
+		tx := new(types.Transaction)
+		if err := tx.UnmarshalBinary(encodedTx); err != nil {
+			return err
+		}
+		txs = append(txs, tx)
+	}
+
+	var replacementUuid uuid.UUID
+	if args.ReplacementUuid != nil {
+		replacementUuid = *args.ReplacementUuid
+	}
+
+	var signingAddress common.Address
+	if args.SigningAddress != nil {
+		signingAddress = *args.SigningAddress
+	}
+
+	var minTimestamp, maxTimestamp uint64
+	if args.MinTimestamp != nil {
+		minTimestamp = *args.MinTimestamp
+	}
+	if args.MaxTimestamp != nil {
+		maxTimestamp = *args.MaxTimestamp
+	}
+
+	go s.b.SendBundle(ctx, txs, args.BlockNumber, replacementUuid, signingAddress, minTimestamp, maxTimestamp, args.RevertingTxHashes)
+
+	return nil
+}
 
 // BundleAPI offers an API for accepting bundled transactions. The BundleAPI has been heavily
 // inspired by the original mev-geth implementation.
