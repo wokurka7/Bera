@@ -238,11 +238,11 @@ func ApplyTransactionWithEVM(
 
 func ApplyTransactionWithEVMWithResult(
 	vmenv *vm.EVM, config *params.ChainConfig, gp *GasPool, statedb state.StateDBI,
-	header *types.Header, tx *types.Transaction, usedGas *uint64,
+	baseFee *big.Int, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64,
 ) (*types.Receipt, *ExecutionResult, error) {
-	msg, err := TransactionToMessage(tx, types.MakeSigner(config, header.Number), header.BaseFee)
+	msg, err := TransactionToMessage(tx, types.MakeSigner(config, blockNumber), baseFee)
 	if err != nil {
 		return nil, nil, err
 	}
-	return applyTransactionWithResult(vmenv, msg, config, gp, statedb, header.Number, header.Hash(), tx, usedGas)
+	return applyTransactionWithResult(vmenv, msg, config, gp, statedb, blockNumber, blockHash, tx, usedGas)
 }

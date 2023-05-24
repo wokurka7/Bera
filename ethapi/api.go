@@ -2201,6 +2201,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		Coinbase:   coinbase,
 		BaseFee:    baseFee,
 	}
+	blockHash := header.Hash()
 
 	// Setup context so it may be cancelled the call has completed
 	// or, in case of unmetered gas, setup a context with a timeout.
@@ -2241,7 +2242,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		state.SetTxContext(tx.Hash(), i)
 
 		receipt, result, err := core.ApplyTransactionWithEVMWithResult(
-			vmenv, s.b.ChainConfig(), gp, state, header, tx, &header.GasUsed,
+			vmenv, s.b.ChainConfig(), gp, state, header.BaseFee, header.Number, blockHash, tx, &header.GasUsed,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
