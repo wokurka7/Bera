@@ -262,13 +262,13 @@ func (b *EthAPIBackend) SubscribeLogsEvent(ch chan<- []*types.Log) event.Subscri
 	return b.eth.BlockChain().SubscribeLogsEvent(ch)
 }
 
-func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction, private bool) error {
-	if private {
-		// return b.eth.txPool.AddPrivateRemote(signedTx)
-		return nil
-	} else {
-		return b.eth.txPool.AddLocal(signedTx)
-	}
+func (b *EthAPIBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+	return b.eth.txPool.AddLocal(signedTx)
+}
+
+func (b *EthAPIBackend) SendPrivTx(ctx context.Context, signedTx *types.Transaction) error {
+	//return b.eth.txPool.AddLocal(signedTx)
+	return nil
 }
 
 func (b *EthAPIBackend) SendBundle(ctx context.Context, txs types.Transactions, blockNumber rpc.BlockNumber, uuid uuid.UUID, signingAddress common.Address, minTimestamp uint64, maxTimestamp uint64, revertingTxHashes []common.Hash) error {

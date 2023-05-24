@@ -194,8 +194,13 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg *core.Message, state sta
 	return vm.NewEVM(context, txContext, state, b.eth.chainConfig, *vmConfig), state.Error, nil
 }
 
-func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction, private bool) error {
+func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
 	return b.eth.txPool.Add(ctx, signedTx)
+}
+
+func (b *LesApiBackend) SendPrivTx(ctx context.Context, signedTx *types.Transaction) error {
+	//return b.eth.txPool.Add(ctx, signedTx)
+	return nil
 }
 
 func (b *LesApiBackend) SendBundle(ctx context.Context, txs types.Transactions, blockNumber rpc.BlockNumber, uuid uuid.UUID, signingAddress common.Address, minTimestamp uint64, maxTimestamp uint64, revertingTxHashes []common.Hash) error {
