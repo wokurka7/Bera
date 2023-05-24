@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/light"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/gofrs/uuid"
 )
 
 type LesApiBackend struct {
@@ -193,8 +194,13 @@ func (b *LesApiBackend) GetEVM(ctx context.Context, msg *core.Message, state sta
 	return vm.NewEVM(context, txContext, state, b.eth.chainConfig, *vmConfig), state.Error, nil
 }
 
-func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+func (b *LesApiBackend) SendTx(ctx context.Context, signedTx *types.Transaction, private bool) error {
 	return b.eth.txPool.Add(ctx, signedTx)
+}
+
+func (b *LesApiBackend) SendBundle(ctx context.Context, txs types.Transactions, blockNumber rpc.BlockNumber, uuid uuid.UUID, signingAddress common.Address, minTimestamp uint64, maxTimestamp uint64, revertingTxHashes []common.Hash) error {
+	//return b.eth.txPool.AddMevBundle(txs, big.NewInt(blockNumber.Int64()), uuid, signingAddress, minTimestamp, maxTimestamp, revertingTxHashes)
+	return nil
 }
 
 func (b *LesApiBackend) RemoveTx(txHash common.Hash) {

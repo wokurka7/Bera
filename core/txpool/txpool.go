@@ -18,7 +18,6 @@ package txpool
 
 import (
 	"container/heap"
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -38,8 +37,6 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/metrics"
 	"github.com/ethereum/go-ethereum/params"
-	"github.com/gofrs/uuid"
-	"golang.org/x/crypto/sha3"
 )
 
 const (
@@ -284,10 +281,6 @@ type TxPool struct {
 	initDoneCh      chan struct{}  // is closed once the pool is initialized (for tests)
 
 	changesSinceReorg int // A counter for how many drops we've performed in-between reorg.
-
-	privateTxs    *timestampedTxHashSet
-	mevBundles    []types.MevBundle
-	bundleFetcher IFetcher
 }
 
 type txpoolResetRequest struct {
@@ -349,17 +342,6 @@ func NewTxPool(config Config, chainconfig *params.ChainConfig, chain blockChain)
 	go pool.loop()
 
 	return pool
-}
-
-type IFetcher interface {
-	GetLatestUuidBundles(ctx context.Context, blockNum int64) ([]types.LatestUuidBundle, error)
-}
-
-func (pool *TxPool) RegisterBundleFetcher(fetcher IFetcher) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	pool.bundleFetcher = fetcher
 }
 
 // loop is the transaction pool's main event loop, waiting for and reacting to
@@ -586,152 +568,6 @@ func (pool *TxPool) Pending(enforceTips bool) map[common.Address]types.Transacti
 		}
 	}
 	return pending
-}
-
-type uuidBundleKey struct {
-	Uuid           uuid.UUID
-	SigningAddress common.Address
-}
-
-func (pool *TxPool) fetchLatestCancellableBundles(ctx context.Context, blockNumber *big.Int) (chan []types.LatestUuidBundle, chan error) {
-	if pool.bundleFetcher == nil {
-		return nil, nil
-	}
-	errCh := make(chan error, 1)
-	lubCh := make(chan []types.LatestUuidBundle, 1)
-	go func(blockNum int64) {
-		lub, err := pool.bundleFetcher.GetLatestUuidBundles(ctx, blockNum)
-		errCh <- err
-		lubCh <- lub
-	}(blockNumber.Int64())
-	return lubCh, errCh
-}
-
-func resolveCancellableBundles(lubCh chan []types.LatestUuidBundle, errCh chan error, uuidBundles map[uuidBundleKey][]types.MevBundle) []types.MevBundle {
-	if lubCh == nil || errCh == nil {
-		return nil
-	}
-
-	if len(uuidBundles) == 0 {
-		return nil
-	}
-
-	err := <-errCh
-	if err != nil {
-		log.Error("could not fetch latest bundles uuid map", "err", err)
-		return nil
-	}
-
-	currentCancellableBundles := []types.MevBundle{}
-
-	log.Trace("Processing uuid bundles", "uuidBundles", uuidBundles)
-
-	lubs := <-lubCh
-	for _, lub := range lubs {
-		ubk := uuidBundleKey{lub.Uuid, lub.SigningAddress}
-		bundles, found := uuidBundles[ubk]
-		if !found {
-			log.Trace("missing uuid bundle", "ubk", ubk)
-			continue
-		}
-		for _, bundle := range bundles {
-			if bundle.Hash == lub.BundleHash {
-				log.Trace("adding uuid bundle", "bundle hash", bundle.Hash.String(), "lub", lub)
-				currentCancellableBundles = append(currentCancellableBundles, bundle)
-				break
-			}
-		}
-	}
-	return currentCancellableBundles
-}
-
-// MevBundles returns a list of bundles valid for the given blockNumber/blockTimestamp
-// also prunes bundles that are outdated
-// Returns regular bundles and a function resolving to current cancellable bundles
-func (pool *TxPool) MevBundles(blockNumber *big.Int, blockTimestamp uint64) ([]types.MevBundle, chan []types.MevBundle) {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	lubCh, errCh := pool.fetchLatestCancellableBundles(ctx, blockNumber)
-
-	// returned values
-	var ret []types.MevBundle
-	// rolled over values
-	var bundles []types.MevBundle
-	// (uuid, signingAddress) -> list of bundles
-	var uuidBundles = make(map[uuidBundleKey][]types.MevBundle)
-
-	for _, bundle := range pool.mevBundles {
-		// Prune outdated bundles
-		if (bundle.MaxTimestamp != 0 && blockTimestamp > bundle.MaxTimestamp) || blockNumber.Cmp(bundle.BlockNumber) > 0 {
-			continue
-		}
-
-		// Roll over future bundles
-		if (bundle.MinTimestamp != 0 && blockTimestamp < bundle.MinTimestamp) || blockNumber.Cmp(bundle.BlockNumber) < 0 {
-			bundles = append(bundles, bundle)
-			continue
-		}
-
-		// keep the bundles around internally until they need to be pruned
-		bundles = append(bundles, bundle)
-
-		// TODO: omit duplicates
-
-		// do not append to the return quite yet, check the DB for the latest bundle for that uuid
-		if bundle.Uuid != types.EmptyUUID {
-			ubk := uuidBundleKey{bundle.Uuid, bundle.SigningAddress}
-			uuidBundles[ubk] = append(uuidBundles[ubk], bundle)
-			continue
-		}
-
-		// return the ones which are in time
-		ret = append(ret, bundle)
-	}
-
-	pool.mevBundles = bundles
-
-	cancellableBundlesCh := make(chan []types.MevBundle, 1)
-	go func() {
-		cancellableBundlesCh <- resolveCancellableBundles(lubCh, errCh, uuidBundles)
-		cancel()
-	}()
-
-	return ret, cancellableBundlesCh
-}
-
-// AddMevBundles adds a mev bundles to the pool
-func (pool *TxPool) AddMevBundles(mevBundles []types.MevBundle) error {
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	pool.mevBundles = append(pool.mevBundles, mevBundles...)
-	return nil
-}
-
-// AddMevBundle adds a mev bundle to the pool
-func (pool *TxPool) AddMevBundle(txs types.Transactions, blockNumber *big.Int, replacementUuid uuid.UUID, signingAddress common.Address, minTimestamp, maxTimestamp uint64, revertingTxHashes []common.Hash) error {
-	bundleHasher := sha3.NewLegacyKeccak256()
-	for _, tx := range txs {
-		bundleHasher.Write(tx.Hash().Bytes())
-	}
-	bundleHash := common.BytesToHash(bundleHasher.Sum(nil))
-
-	pool.mu.Lock()
-	defer pool.mu.Unlock()
-
-	pool.mevBundles = append(pool.mevBundles, types.MevBundle{
-		Txs:               txs,
-		BlockNumber:       blockNumber,
-		Uuid:              replacementUuid,
-		SigningAddress:    signingAddress,
-		MinTimestamp:      minTimestamp,
-		MaxTimestamp:      maxTimestamp,
-		RevertingTxHashes: revertingTxHashes,
-		Hash:              bundleHash,
-	})
-	return nil
 }
 
 // Locals retrieves the accounts currently considered local by the pool.
@@ -2054,60 +1890,6 @@ func (t *lookup) RemotesBelowTip(threshold *big.Int) types.Transactions {
 		return true
 	}, false, true) // Only iterate remotes
 	return found
-}
-
-type timestampedTxHashSet struct {
-	lock       sync.RWMutex
-	timestamps map[common.Hash]time.Time
-	ttl        time.Duration
-}
-
-func newExpiringTxHashSet(ttl time.Duration) *timestampedTxHashSet {
-	s := &timestampedTxHashSet{
-		timestamps: make(map[common.Hash]time.Time),
-		ttl:        ttl,
-	}
-
-	return s
-}
-
-func (s *timestampedTxHashSet) Add(hash common.Hash) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	_, ok := s.timestamps[hash]
-	if !ok {
-		s.timestamps[hash] = time.Now().Add(s.ttl)
-	}
-}
-
-func (s *timestampedTxHashSet) Contains(hash common.Hash) bool {
-	s.lock.RLock()
-	defer s.lock.RUnlock()
-	_, ok := s.timestamps[hash]
-	return ok
-}
-
-func (s *timestampedTxHashSet) Remove(hash common.Hash) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	_, ok := s.timestamps[hash]
-	if ok {
-		delete(s.timestamps, hash)
-	}
-}
-
-func (s *timestampedTxHashSet) prune() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
-
-	now := time.Now()
-	for hash, ts := range s.timestamps {
-		if ts.Before(now) {
-			delete(s.timestamps, hash)
-		}
-	}
 }
 
 // numSlots calculates the number of slots needed for a single transaction.

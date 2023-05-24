@@ -469,7 +469,7 @@ func (s *PersonalAccountAPI) SendTransaction(ctx context.Context, args Transacti
 		log.Warn("Failed transaction send attempt", "from", args.from(), "to", args.To, "value", args.Value.ToInt(), "err", err)
 		return common.Hash{}, err
 	}
-	return SubmitTransaction(ctx, s.b, signed)
+	return SubmitTransaction(ctx, s.b, signed, false)
 }
 
 // SignTransaction will create a transaction from the given arguments and
@@ -889,9 +889,6 @@ func (diff *StateOverride) Apply(state state.StateDBI) error {
 		// Override account nonce.
 		if account.Nonce != nil {
 			state.SetNonce(addr, uint64(*account.Nonce))
-			if err := state.Error(); err != nil {
-				return err
-			}
 		}
 		// Override account(contract) code.
 		if account.Code != nil {
@@ -900,9 +897,6 @@ func (diff *StateOverride) Apply(state state.StateDBI) error {
 		// Override account balance.
 		if account.Balance != nil {
 			state.SetBalance(addr, (*big.Int)(*account.Balance))
-			if err := state.Error(); err != nil {
-				return err
-			}
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
@@ -1458,9 +1452,9 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
 	}
 	isPostMerge := header.Difficulty.Cmp(common.Big0) == 0
-	rules := b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(&rules) // TODO: use evm precompile manager instead
+	rules := b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
+	precompiles := vm.ActivePrecompiles(&rules)
 
 	// Create an initial tracer
 	prevTracer := logger.NewAccessListTracer(nil, args.from(), to, precompiles)
@@ -1636,7 +1630,7 @@ func (s *TransactionAPI) GetTransactionReceipt(ctx context.Context, hash common.
 	if err != nil {
 		return nil, err
 	}
-	if len(receipts) <= int(index) {
+	if uint64(len(receipts)) <= index {
 		return nil, nil
 	}
 	receipt := receipts[index]
@@ -1693,7 +1687,7 @@ func (s *TransactionAPI) sign(addr common.Address, tx *types.Transaction) (*type
 }
 
 // SubmitTransaction is a helper function that submits tx to txPool and logs a message.
-func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (common.Hash, error) {
+func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction, private bool) (common.Hash, error) {
 	// If the transaction fee cap is already specified, ensure the
 	// fee of the given transaction is _reasonable_.
 	if err := checkTxFee(tx.GasPrice(), tx.Gas(), b.RPCTxFeeCap()); err != nil {
@@ -1703,7 +1697,7 @@ func SubmitTransaction(ctx context.Context, b Backend, tx *types.Transaction) (c
 		// Ensure only eip155 signed transactions are submitted if EIP155Required is set.
 		return common.Hash{}, errors.New("only replay-protected (EIP-155) transactions allowed over RPC")
 	}
-	if err := b.SendTx(ctx, tx); err != nil {
+	if err := b.SendTx(ctx, tx, private); err != nil {
 		return common.Hash{}, err
 	}
 	// Print a log with full tx details for manual investigations and interventions
@@ -1751,7 +1745,7 @@ func (s *TransactionAPI) SendTransaction(ctx context.Context, args TransactionAr
 	if err != nil {
 		return common.Hash{}, err
 	}
-	return SubmitTransaction(ctx, s.b, signed)
+	return SubmitTransaction(ctx, s.b, signed, false)
 }
 
 // FillTransaction fills the defaults (nonce, gas, gasPrice or 1559 fields)
@@ -1778,7 +1772,20 @@ func (s *TransactionAPI) SendRawTransaction(ctx context.Context, input hexutil.B
 	if err := tx.UnmarshalBinary(input); err != nil {
 		return common.Hash{}, err
 	}
-	return SubmitTransaction(ctx, s.b, tx)
+	return SubmitTransaction(ctx, s.b, tx, false)
+}
+
+// SendPrivateRawTransaction will add the signed transaction to the transaction pool,
+// without broadcasting the transaction to its peers, and mark the transaction to avoid
+// future syncs.
+//
+// See SendRawTransaction.
+func (s *TransactionAPI) SendPrivateRawTransaction(ctx context.Context, input hexutil.Bytes) (common.Hash, error) {
+	tx := new(types.Transaction)
+	if err := tx.UnmarshalBinary(input); err != nil {
+		return common.Hash{}, err
+	}
+	return SubmitTransaction(ctx, s.b, tx, true)
 }
 
 // Sign calculates an ECDSA signature for:
@@ -1911,7 +1918,7 @@ func (s *TransactionAPI) Resend(ctx context.Context, sendArgs TransactionArgs, g
 			if err != nil {
 				return common.Hash{}, err
 			}
-			if err = s.b.SendTx(ctx, signedTx); err != nil {
+			if err = s.b.SendTx(ctx, signedTx, false); err != nil {
 				return common.Hash{}, err
 			}
 			return signedTx.Hash(), nil
@@ -2108,7 +2115,9 @@ func toHexSlice(b [][]byte) []string {
 	return r
 }
 
-// --------------------------------------- FlashBots ------------------------------------------- //
+// ---------------------------------------------------------------- FlashBots ----------------------------------------------------------------
+
+// PrivateTxBundleAPI offers an API for accepting bundled transactions
 type PrivateTxBundleAPI struct {
 	b Backend
 }
@@ -2171,9 +2180,7 @@ func (s *PrivateTxBundleAPI) SendBundle(ctx context.Context, args SendBundleArgs
 	return nil
 }
 
-// BundleAPI offers an API for accepting bundled transactions. The BundleAPI has been heavily
-// inspired by the original mev-geth implementation.
-// (https://github.com/flashbots/mev-geth/blob/master/internal/ethapi/api.go#L2038)
+// BundleAPI offers an API for accepting bundled transactions
 type BundleAPI struct {
 	b     Backend
 	chain core.ChainContext
@@ -2184,7 +2191,7 @@ func NewBundleAPI(b Backend, chain core.ChainContext) *BundleAPI {
 	return &BundleAPI{b, chain}
 }
 
-// CallBundleArgs represents the arguinterface ments for a call.
+// CallBundleArgs represents the arguments for a call.
 type CallBundleArgs struct {
 	Txs                    []hexutil.Bytes       `json:"txs"`
 	BlockNumber            rpc.BlockNumber       `json:"blockNumber"`
@@ -2212,6 +2219,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	}
 
 	var txs types.Transactions
+
 	for _, encodedTx := range args.Txs {
 		tx := new(types.Transaction)
 		if err := tx.UnmarshalBinary(encodedTx); err != nil {
@@ -2226,6 +2234,19 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		timeoutMilliSeconds = *args.Timeout
 	}
 	timeout := time.Millisecond * time.Duration(timeoutMilliSeconds)
+
+	// Setup context so it may be cancelled the call has completed
+	// or, in case of unmetered gas, setup a context with a timeout.
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	// Make sure the context is cancelled when the call has completed
+	// this makes sure resources are cleaned up.
+	defer cancel()
+
 	state, parent, err := s.b.StateAndHeaderByNumberOrHash(ctx, args.StateBlockNumberOrHash)
 	if state == nil || err != nil {
 		return nil, err
@@ -2264,17 +2285,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		BaseFee:    baseFee,
 	}
 
-	// Setup context so it may be cancelled the call has completed
-	// or, in case of unmetered gas, setup a context with a timeout.
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	// Make sure the context is cancelled when the call has completed
-	// this makes sure resources are cleaned up.
-	defer cancel()
+	vmconfig := vm.Config{}
 
 	// Setup the gas pool (also for unmetered requests)
 	// and apply the message.
@@ -2287,27 +2298,18 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	signer := types.MakeSigner(s.b.ChainConfig(), blockNumber)
 	var totalGasUsed uint64
 	gasFees := new(big.Int)
-
-	msg, err := core.TransactionToMessage(txs[0], signer, header.BaseFee)
-	if err != nil {
-		return nil, err
-	}
-
-	vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{})
-	if err != nil {
-		return nil, err
-	}
-
 	for i, tx := range txs {
+		// Check if the context was cancelled (eg. timed-out)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
 
-		receipt, result, err := core.ApplyTransactionWithEVMWithResult(vmenv, s.b.ChainConfig(), &coinbase, gp, state, header, tx, &header.GasUsed)
+		receipt, result, err := core.ApplyTransactionWithResult(s.b.ChainConfig(), s.chain, &coinbase, gp, state, header, tx, &header.GasUsed, vmconfig)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
-		}
-		if err := vmError(); err != nil {
-			return nil, fmt.Errorf("execution error: %v", err)
 		}
 
 		txHash := tx.Hash().String()
@@ -2391,6 +2393,20 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 	}
 	timeout := time.Millisecond * time.Duration(timeoutMS)
 
+	// Setup context so it may be cancelled when the call
+	// has completed or, in case of unmetered gas, setup
+	// a context with a timeout
+	var cancel context.CancelFunc
+	if timeout > 0 {
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+	} else {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+
+	// Make sure the context is cancelled when the call has completed
+	// This makes sure resources are cleaned up
+	defer cancel()
+
 	state, parent, err := s.b.StateAndHeaderByNumberOrHash(ctx, args.StateBlockNumberOrHash)
 	if state == nil || err != nil {
 		return nil, err
@@ -2415,39 +2431,36 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 		BaseFee:    parent.BaseFee,
 	}
 
-	// Setup context so it may be cancelled when the call
-	// has completed or, in case of unmetered gas, setup
-	// a context with a timeout
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, timeout)
-	} else {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-
-	// Make sure the context is cancelled when the call has completed
-	// This makes sure resources are cleaned up
-	defer cancel()
-
 	// RPC Call gas cap
 	globalGasCap := s.b.RPCGasCap()
 
 	// Results
 	results := []map[string]interface{}{}
 
+	// Copy the original db so we don't modify it
+	statedb := state.Copy()
+
 	// Gas pool
 	gp := new(core.GasPool).AddGas(math.MaxUint64)
+
+	// Block context
+	blockContext := core.NewEVMBlockContext(header, s.chain, &coinbase)
 
 	// Feed each of the transactions into the VM ctx
 	// And try and estimate the gas used
 	for i, txArgs := range args.Txs {
+		// Check if the context was cancelled (eg. timed-out)
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
 		// Since its a txCall we'll just prepare the
 		// state with a random hash
 		var randomHash common.Hash
 		rand.Read(randomHash[:])
 
 		// New random hash since its a call
-		state.SetTxContext(randomHash, i)
+		statedb.SetTxContext(randomHash, i)
 
 		// Convert tx args to msg to apply state transition
 		msg, err := txArgs.ToMessage(globalGasCap, header.BaseFee)
@@ -2455,11 +2468,11 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 			return nil, err
 		}
 
+		// Prepare the hashes
+		txContext := core.NewEVMTxContext(msg)
+
 		// Get EVM Environment
-		vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true})
-		if err != nil {
-			return nil, err
-		}
+		vmenv := vm.NewEVM(blockContext, txContext, statedb, s.b.ChainConfig(), vm.Config{NoBaseFee: true})
 
 		// Apply state transition
 		result, err := core.ApplyMessage(vmenv, msg, gp)
@@ -2467,14 +2480,9 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 			return nil, err
 		}
 
-		// Check for the vm error
-		if err := vmError(); err != nil {
-			return nil, fmt.Errorf("execution error: %v", err)
-		}
-
 		// Modifications are committed to the state
 		// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
-		state.Finalise(vmenv.ChainConfig().IsEIP158(blockNumber))
+		statedb.Finalise(vmenv.ChainConfig().IsEIP158(blockNumber))
 
 		// Append result
 		jsonResult := map[string]interface{}{
