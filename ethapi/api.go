@@ -2240,7 +2240,9 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
 
-		receipt, result, err := core.ApplyTransactionWithEVMWithResult(vmenv, s.b.ChainConfig(), &coinbase, gp, state, header, tx, &header.GasUsed)
+		receipt, result, err := core.ApplyTransactionWithEVMWithResult(
+			vmenv, s.b.ChainConfig(), gp, state, header, tx, &header.GasUsed,
+		)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
 		}
