@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/gofrs/uuid"
 )
 
 var (
@@ -596,4 +597,40 @@ func copyAddressPtr(a *common.Address) *common.Address {
 	}
 	cpy := *a
 	return &cpy
+}
+
+var EmptyUUID uuid.UUID
+
+type LatestUuidBundle struct {
+	Uuid           uuid.UUID
+	SigningAddress common.Address
+	BundleHash     common.Hash
+}
+
+type MevBundle struct {
+	Txs               Transactions
+	BlockNumber       *big.Int
+	Uuid              uuid.UUID
+	SigningAddress    common.Address
+	MinTimestamp      uint64
+	MaxTimestamp      uint64
+	RevertingTxHashes []common.Hash
+	Hash              common.Hash
+}
+
+func (b *MevBundle) RevertingHash(hash common.Hash) bool {
+	for _, revHash := range b.RevertingTxHashes {
+		if revHash == hash {
+			return true
+		}
+	}
+	return false
+}
+
+type SimulatedBundle struct {
+	MevGasPrice       *big.Int
+	TotalEth          *big.Int
+	EthSentToCoinbase *big.Int
+	TotalGasUsed      uint64
+	OriginalBundle    MevBundle
 }

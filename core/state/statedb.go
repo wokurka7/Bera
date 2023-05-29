@@ -1080,7 +1080,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 	return root, nil
 }
 
-// Prepare handles the preparatory steps for executing a state transition with.
+// PrepareForTx handles the preparatory steps for executing a state transition with.
 // This method must be invoked before state transition.
 //
 // Berlin fork:
@@ -1093,7 +1093,7 @@ func (s *StateDB) Commit(deleteEmptyObjects bool) (common.Hash, error) {
 // - Reset access list (Berlin)
 // - Add coinbase to access list (EIP-3651)
 // - Reset transient storage (EIP-1153)
-func (s *StateDB) Prepare(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
+func (s *StateDB) PrepareForTx(rules params.Rules, sender, coinbase common.Address, dst *common.Address, precompiles []common.Address, list types.AccessList) {
 	if rules.IsBerlin {
 		// Clear out any leftover from previous executions
 		al := NewAccessList()

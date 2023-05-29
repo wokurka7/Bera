@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/gofrs/uuid"
 )
 
 // TestSetFeeDefaults tests the logic for filling in default fee values works as expected.
@@ -212,6 +213,10 @@ type backendMock struct {
 	config  *params.ChainConfig
 }
 
+func (b *backendMock) SendBundle(ctx context.Context, txs types.Transactions, blockNumber rpc.BlockNumber, replacementUuid uuid.UUID, signingAddress common.Address, minTimestamp uint64, maxTimestamp uint64, revertingTxHashes []common.Hash) error {
+	return nil
+}
+
 func newBackendMock() *backendMock {
 	config := &params.ChainConfig{
 		ChainID:             big.NewInt(42),
@@ -315,7 +320,12 @@ func (b *backendMock) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) eve
 func (b *backendMock) SubscribeChainSideEvent(ch chan<- core.ChainSideEvent) event.Subscription {
 	return nil
 }
-func (b *backendMock) SendTx(ctx context.Context, signedTx *types.Transaction) error { return nil }
+func (b *backendMock) SendTx(ctx context.Context, signedTx *types.Transaction) error {
+	return nil
+}
+func (b *backendMock) SendPrivTx(ctx context.Context, signedTx *types.Transaction) error {
+	return nil
+}
 func (b *backendMock) GetTransaction(ctx context.Context, txHash common.Hash) (*types.Transaction, common.Hash, uint64, uint64, error) {
 	return nil, [32]byte{}, 0, 0, nil
 }
