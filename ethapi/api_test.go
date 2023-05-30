@@ -297,6 +297,10 @@ func (b testBackend) GetEVM(ctx context.Context, msg *core.Message, state state.
 	}
 	return vm.NewEVM(context, txContext, state, b.chain.Config(), *vmConfig), vmError
 }
+func (b testBackend) GetBlockContext(ctx context.Context, header *types.Header) *vm.BlockContext {
+	blockContext := core.NewEVMBlockContext(header, b.chain, nil)
+	return &blockContext
+}
 func (b testBackend) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription {
 	panic("implement me")
 }

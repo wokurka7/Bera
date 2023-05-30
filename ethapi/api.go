@@ -1023,11 +1023,11 @@ func DoCall(ctx context.Context, b Backend, args TransactionArgs, blockNrOrHash 
 	if err != nil {
 		return nil, err
 	}
-	blockCtx := core.NewEVMBlockContext(header, NewChainContext(ctx, b), nil)
+	blockCtx := b.GetBlockContext(ctx, header)
 	if blockOverrides != nil {
-		blockOverrides.Apply(&blockCtx)
+		blockOverrides.Apply(blockCtx)
 	}
-	evm, vmError := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, &blockCtx)
+	evm, vmError := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, blockCtx)
 
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)

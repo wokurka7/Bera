@@ -308,6 +308,9 @@ func (b *backendMock) GetTd(ctx context.Context, hash common.Hash) *big.Int { re
 func (b *backendMock) GetEVM(ctx context.Context, msg *core.Message, state state.StateDBI, header *types.Header, vmConfig *vm.Config, blockCtx *vm.BlockContext) (*vm.EVM, func() error) {
 	return nil, nil
 }
+func (b *backendMock) GetBlockContext(ctx context.Context, header *types.Header) *vm.BlockContext {
+	return nil
+}
 func (b *backendMock) SubscribeChainEvent(ch chan<- core.ChainEvent) event.Subscription { return nil }
 func (b *backendMock) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	return nil
