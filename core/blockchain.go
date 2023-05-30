@@ -1736,7 +1736,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool) (int, error)
 			if followup, err := it.peek(); followup != nil && err == nil {
 				throwaway, _ := state.New(parent.Root, bc.stateCache, bc.snaps)
 
-				go func(start time.Time, followup *types.Block, throwaway state.StateDBI, interrupt *uint32) {
+				go func(start time.Time, followup *types.Block, throwaway state.StateDBI) {
 					bc.prefetcher.Prefetch(followup, throwaway, bc.vmConfig, &followupInterrupt)
 
 					blockPrefetchExecuteTimer.Update(time.Since(start))

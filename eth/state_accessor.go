@@ -218,10 +218,7 @@ func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block,
 			return msg, context, statedb, release, nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
-		vmenv, vmError, err := eth.APIBackend.GetEVM(ctx, msg, statedb, block.Header(), &vm.Config{})
-		if err != nil {
-			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("failed to get evm: %v", err)
-		}
+		vmenv, vmError := eth.APIBackend.GetEVM(ctx, msg, statedb, block.Header(), &vm.Config{}, &context)
 		statedb.SetTxContext(tx.Hash(), idx)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)

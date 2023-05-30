@@ -2240,7 +2240,7 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 	coinbaseBalanceBefore := state.GetBalance(coinbase)
 
 	bundleHash := sha3.NewLegacyKeccak256()
-	signer := types.MakeSigner(s.b.ChainConfig(), blockNumber)
+	signer := types.MakeSigner(s.b.ChainConfig(), blockNumber, timestamp)
 	var totalGasUsed uint64
 	gasFees := new(big.Int)
 
@@ -2249,17 +2249,14 @@ func (s *BundleAPI) CallBundle(ctx context.Context, args CallBundleArgs) (map[st
 		return nil, err
 	}
 
-	vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{})
-	if err != nil {
-		return nil, err
-	}
+	vmenv, vmError := s.b.GetEVM(ctx, msg, state, header, &vm.Config{}, nil)
 
 	for i, tx := range txs {
 		coinbaseBalanceBeforeTx := state.GetBalance(coinbase)
 		state.SetTxContext(tx.Hash(), i)
 
 		receipt, result, err := core.ApplyTransactionWithEVMWithResult(
-			vmenv, s.b.ChainConfig(), gp, state, header.BaseFee, header.Number, blockHash, tx, &header.GasUsed,
+			vmenv, s.b.ChainConfig(), gp, state, header.BaseFee, header.Number, blockHash, header.Time, tx, &header.GasUsed,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("err: %w; txhash %s", err, tx.Hash())
@@ -2414,10 +2411,7 @@ func (s *BundleAPI) EstimateGasBundle(ctx context.Context, args EstimateGasBundl
 		}
 
 		// Get EVM Environment
-		vmenv, vmError, err := s.b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true})
-		if err != nil {
-			return nil, err
-		}
+		vmenv, vmError := s.b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, nil)
 
 		// Apply state transition
 		result, err := core.ApplyMessage(vmenv, msg, gp)
