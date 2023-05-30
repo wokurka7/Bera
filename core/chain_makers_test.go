@@ -118,7 +118,7 @@ func TestGenerateWithdrawalChain(t *testing.T) {
 	// enforce that withdrawal indexes are monotonically increasing from 0
 	var (
 		withdrawalIndex uint64
-		head            = blockchain.CurrentBlock().NumberU64()
+		head            = blockchain.CurrentBlock().Number.Uint64()
 	)
 	for i := 0; i < int(head); i++ {
 		block := blockchain.GetBlockByNumber(uint64(i))
@@ -197,7 +197,7 @@ func ExampleGenerateChain() {
 	}
 
 	state, _ := blockchain.State()
-	fmt.Printf("last block: #%d\n", blockchain.CurrentBlock().Number())
+	fmt.Printf("last block: #%d\n", blockchain.CurrentBlock().Number)
 	fmt.Println("balance of addr1:", state.GetBalance(addr1))
 	fmt.Println("balance of addr2:", state.GetBalance(addr2))
 	fmt.Println("balance of addr3:", state.GetBalance(addr3))
