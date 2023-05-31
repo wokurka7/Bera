@@ -81,6 +81,10 @@ func (bc *testBlockChain) StateAt(common.Hash) (state.StateDBI, error) {
 	return bc.statedb, nil
 }
 
+func (bc *testBlockChain) StateAtHeader(*types.Header) (state.StateDBI, error) {
+	return bc.statedb, nil
+}
+
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
 }

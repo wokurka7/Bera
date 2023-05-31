@@ -85,6 +85,10 @@ func (bc *testBlockChain) StateAt(common.Hash) (state.StateDBI, error) {
 	return bc.statedb, nil
 }
 
+func (bc *testBlockChain) StateAtHeader(*types.Header) (state.StateDBI, error) {
+	return bc.statedb, nil
+}
+
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
 	return bc.chainHeadFeed.Subscribe(ch)
 }
@@ -446,7 +450,7 @@ func TestChainFork(t *testing.T) {
 	if _, err := pool.add(tx, false); err != nil {
 		t.Error("didn't expect error", err)
 	}
-	pool.removeTx(tx.Hash(), true)
+	pool.RemoveTx(tx.Hash(), true)
 
 	// reset the pool's internal state
 	resetState()
