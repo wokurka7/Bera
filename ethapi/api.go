@@ -1201,6 +1201,11 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 			hi = mid
 		}
 	}
+
+	// TODO: remove once stateful precompile gas estimates are accurate
+	// bump the estimate gas by 5% for stateful precompiles
+	hi += uint64(float64(hi) * 0.05)
+
 	// Reject the transaction as invalid if it still fails at the highest allowance
 	if hi == cap {
 		failed, result, err := executable(hi)
