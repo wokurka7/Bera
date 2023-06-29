@@ -64,7 +64,7 @@ func (pm *precompileManager) GetActive(rules *params.Rules) []common.Address {
 // Run runs the given precompiled contract with the given input data and returns the remaining gas.
 func (pm *precompileManager) Run(
 	evm PrecompileEVM, p PrecompiledContract, input []byte,
-	caller common.Address, value *big.Int, suppliedGas uint64, readonly bool,
+	caller common.Address, value *big.Int, suppliedGas uint64, _ bool,
 ) (ret []byte, remainingGas uint64, err error) {
 	gasCost := p.RequiredGas(input)
 	if gasCost > suppliedGas {
@@ -72,7 +72,7 @@ func (pm *precompileManager) Run(
 	}
 
 	suppliedGas -= gasCost
-	output, err := p.Run(context.Background(), evm, input, caller, value, readonly)
+	output, err := p.Run(context.Background(), evm, input, caller, value)
 
 	return output, suppliedGas, err
 }
