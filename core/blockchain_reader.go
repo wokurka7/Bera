@@ -321,9 +321,9 @@ func (bc *BlockChain) StateAt(root common.Hash) (state.StateDBI, error) {
 	return state.New(root, bc.stateCache, bc.snaps)
 }
 
-// StateAtHeader returns a new mutable state based on a particular block header in time.
-func (bc *BlockChain) StateAtHeader(header *types.Header) (state.StateDBI, error) {
-	return bc.StateAt(header.Root)
+// StateAtBlockNumber returns a new mutable state based on a particular block number.
+func (bc *BlockChain) StateAtBlockNumber(number uint64) (state.StateDBI, error) {
+	return bc.StateAt(bc.GetHeaderByNumber(number).Root)
 }
 
 // Config retrieves the chain's fork configuration.

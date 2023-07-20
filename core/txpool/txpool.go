@@ -156,8 +156,7 @@ type blockChain interface {
 	CurrentBlock() *types.Header
 	GetBlock(hash common.Hash, number uint64) *types.Block
 	StateAt(root common.Hash) (state.StateDBI, error)
-	StateAtHeader(header *types.Header) (state.StateDBI, error)
-
+	StateAtBlockNumber(uint64) (state.StateDBI, error)
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 }
 
@@ -1381,7 +1380,7 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	}
 	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
-		statedb, err = pool.chain.StateAtHeader(newHead)
+		statedb, err = pool.chain.StateAtBlockNumber(newHead.Number.Uint64())
 		if err != nil {
 			log.Error("Failed to reset txpool state", "err", err)
 			return
