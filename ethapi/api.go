@@ -1207,7 +1207,7 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 	hi += uint64(float64(hi) * 0.2)
 
 	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == cap {
+	if hi >= cap {
 		failed, result, err := executable(hi)
 		if err != nil {
 			return 0, err
