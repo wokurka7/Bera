@@ -618,18 +618,8 @@ web3._extend({
 			inputFormatter: [web3._extend.formatters.inputCallFormatter, web3._extend.formatters.inputDefaultBlockNumberFormatter, null, null],
 		}),
 		new web3._extend.Method({
-<<<<<<< HEAD
 			name: 'getBlockReceipts',
 			call: 'eth_getBlockReceipts',
-=======
-			name: 'callBundle',
-			call: 'eth_callBundle',
-			params: 1,
-		}),
-		new web3._extend.Method({
-			name: 'estimateGasBundle',
-			call: 'eth_estimateGasBundle',
->>>>>>> fffb49725 (stateful1.12final)
 			params: 1,
 		}),
 	],
