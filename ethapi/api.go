@@ -738,7 +738,7 @@ func (s *BlockChainAPI) GetProof(ctx context.Context, address common.Address, st
 	// }
 
 	// TODO: Support Proofs
-	var accountProof proofList
+	var accountProof proofList = make(proofList, 0)
 	// if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
 	// 	return nil, err
 	// }
