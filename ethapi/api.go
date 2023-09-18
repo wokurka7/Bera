@@ -732,14 +732,17 @@ func (s *BlockChainAPI) GetProof(ctx context.Context, address common.Address, st
 	}
 
 	// Create the accountProof.
-	tr, err := trie.NewStateTrie(trie.StateTrieID(header.Root), state.Database().TrieDB())
-	if err != nil {
-		return nil, err
-	}
+	// tr, err := trie.NewStateTrie(trie.StateTrieID(header.Root), state.Database().TrieDB())
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	// TODO: Support Proofs
 	var accountProof proofList
-	if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
-		return nil, err
-	}
+	// if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
+	// 	return nil, err
+	// }
+
 	return &AccountResult{
 		Address:      address,
 		AccountProof: accountProof,
