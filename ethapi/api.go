@@ -1316,8 +1316,8 @@ func DoEstimateGas(ctx context.Context, b Backend, args TransactionArgs, blockNr
 	}
 
 	// TODO: FIGURE OUT WHY THIS HACK IS NEEDED THANKS
-	// bump the estimate gas by 10% for stateful precompiles
-	hi += uint64(float64(hi) * 0.1)
+	// bump the estimate gas by 20% for stateful precompiles
+	hi += uint64(float64(hi) * 0.2)
 
 	return hexutil.Uint64(hi), nil
 }
