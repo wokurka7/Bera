@@ -135,6 +135,9 @@ func (ga *GenesisAlloc) deriveHash() (common.Hash, error) {
 		}
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
+		if err := statedb.Error(); err != nil {
+			return common.Hash{}, err
+		}
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
 		}
@@ -156,6 +159,9 @@ func (ga *GenesisAlloc) flush(db ethdb.Database, triedb *trie.Database, blockhas
 		}
 		statedb.SetCode(addr, account.Code)
 		statedb.SetNonce(addr, account.Nonce)
+		if err := statedb.Error(); err != nil {
+			return err
+		}
 		for key, value := range account.Storage {
 			statedb.SetState(addr, key, value)
 		}

@@ -17,6 +17,7 @@
 package vm
 
 import (
+	"errors"
 	"math/big"
 	"sync/atomic"
 
@@ -101,6 +102,8 @@ type EVM struct {
 	TxContext
 	// StateDB gives access to the underlying state
 	StateDB StateDB
+	// PrecompileManager finds and runs precompiled contracts
+	PrecompileManager PrecompileManager
 	// Depth is the current call stack
 	depth int
 
@@ -134,6 +137,26 @@ func NewEVM(blockCtx BlockContext, txCtx TxContext, statedb StateDB, chainConfig
 		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
 	}
 	evm.interpreter = NewEVMInterpreter(evm)
+	evm.PrecompileManager = NewPrecompileManager(&evm.chainRules)
+	return evm
+}
+
+// NewEVMWithPrecompiles returns a new EVM with a precompile manager. The returned EVM is not
+// thread safe and should only ever be used *once*.
+func NewEVMWithPrecompiles(
+	blockCtx BlockContext, txCtx TxContext, statedb StateDB,
+	chainConfig *params.ChainConfig, config Config, precompileManager PrecompileManager,
+) *EVM {
+	evm := &EVM{
+		Context:     blockCtx,
+		TxContext:   txCtx,
+		StateDB:     statedb,
+		Config:      config,
+		chainConfig: chainConfig,
+		chainRules:  chainConfig.Rules(blockCtx.BlockNumber, blockCtx.Random != nil, blockCtx.Time),
+	}
+	evm.interpreter = NewEVMInterpreter(evm)
+	evm.PrecompileManager = precompileManager
 	return evm
 }
 
@@ -160,12 +183,12 @@ func (evm *EVM) Interpreter() *EVMInterpreter {
 	return evm.interpreter
 }
 
-// SetBlockContext updates the block context of the EVM.
-func (evm *EVM) SetBlockContext(blockCtx BlockContext) {
-	evm.Context = blockCtx
-	num := blockCtx.BlockNumber
-	timestamp := blockCtx.Time
-	evm.chainRules = evm.chainConfig.Rules(num, blockCtx.Random != nil, timestamp)
+func (evm *EVM) GetStateDB() StateDB {
+	return evm.StateDB
+}
+
+func (evm *EVM) GetContext() *BlockContext {
+	return &evm.Context
 }
 
 // Call executes the contract associated with the addr with the given input as
@@ -182,7 +205,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		return nil, gas, ErrInsufficientBalance
 	}
 	snapshot := evm.StateDB.Snapshot()
-	p, isPrecompile := evm.precompile(addr)
+	isPrecompile := evm.PrecompileManager.Has(addr)
 	debug := evm.Config.Tracer != nil
 
 	if !evm.StateDB.Exist(addr) {
@@ -220,7 +243,9 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	}
 
 	if isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+		ret, gas, err = evm.PrecompileManager.Run(
+			evm, evm.PrecompileManager.Get(addr), input, caller.Address(), value, gas, false,
+		)
 	} else {
 		// Initialise a new contract and set the code that is to be used by the EVM.
 		// The contract is a scoped environment for this execution context only.
@@ -242,7 +267,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	// when we're in homestead this also counts for code storage gas errors.
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 		// TODO: consider clearing up unused snapshots:
@@ -282,8 +307,10 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	}
 
 	// It is allowed to call precompiles, even via delegatecall
-	if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	if isPrecompile := evm.PrecompileManager.Has(addr); isPrecompile {
+		ret, gas, err = evm.PrecompileManager.Run(
+			evm, evm.PrecompileManager.Get(addr), input, caller.Address(), value, gas, false,
+		)
 	} else {
 		addrCopy := addr
 		// Initialise a new contract and set the code that is to be used by the EVM.
@@ -295,7 +322,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
@@ -327,8 +354,11 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	}
 
 	// It is allowed to call precompiles, even via delegatecall
-	if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	if isPrecompile := evm.PrecompileManager.Has(addr); isPrecompile {
+		parent := caller.(*Contract)
+		ret, gas, err = evm.PrecompileManager.Run(
+			evm, evm.PrecompileManager.Get(addr), input, parent.CallerAddress, parent.value, gas, false,
+		)
 	} else {
 		addrCopy := addr
 		// Initialise a new contract and make initialise the delegate values
@@ -339,7 +369,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
@@ -367,6 +397,9 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// but is the correct thing to do and matters on other networks, in tests, and potential
 	// future scenarios
 	evm.StateDB.AddBalance(addr, big0)
+	if err := evm.StateDB.Error(); err != nil {
+		return nil, gas, err
+	}
 
 	// Invoke tracer hooks that signal entering/exiting a call frame
 	if evm.Config.Tracer != nil {
@@ -376,8 +409,10 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 		}(gas)
 	}
 
-	if p, isPrecompile := evm.precompile(addr); isPrecompile {
-		ret, gas, err = RunPrecompiledContract(p, input, gas)
+	if isPrecompile := evm.PrecompileManager.Has(addr); isPrecompile {
+		ret, gas, err = evm.PrecompileManager.Run(
+			evm, evm.PrecompileManager.Get(addr), input, caller.Address(), new(big.Int), gas, true,
+		)
 	} else {
 		// At this point, we use a copy of address. If we don't, the go compiler will
 		// leak the 'contract' to the outer scope, and make allocation for 'contract'
@@ -395,7 +430,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	}
 	if err != nil {
 		evm.StateDB.RevertToSnapshot(snapshot)
-		if err != ErrExecutionReverted {
+		if errors.Is(err, ErrExecutionReverted) {
 			gas = 0
 		}
 	}
@@ -429,6 +464,9 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 		return nil, common.Address{}, gas, ErrNonceUintOverflow
 	}
 	evm.StateDB.SetNonce(caller.Address(), nonce+1)
+	if err := evm.StateDB.Error(); err != nil {
+		return nil, common.Address{}, gas, err
+	}
 	// We add this to the access list _before_ taking a snapshot. Even if the creation fails,
 	// the access-list change should not be rolled back
 	if evm.chainRules.IsBerlin {
@@ -444,6 +482,9 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	evm.StateDB.CreateAccount(address)
 	if evm.chainRules.IsEIP158 {
 		evm.StateDB.SetNonce(address, 1)
+		if err := evm.StateDB.Error(); err != nil {
+			return nil, common.Address{}, gas, err
+		}
 	}
 	evm.Context.Transfer(evm.StateDB, caller.Address(), address, value)
 

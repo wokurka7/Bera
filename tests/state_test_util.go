@@ -190,6 +190,7 @@ func (t *StateTest) checkError(subtest StateSubtest, err error) error {
 }
 
 // Run executes a specific subtest and verifies the post-state and logs
+<<<<<<< HEAD
 func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bool, scheme string, postCheck func(err error, snaps *snapshot.Tree, state *state.StateDB)) (result error) {
 	triedb, snaps, statedb, root, err := t.RunNoVerify(subtest, vmconfig, snapshotter, scheme)
 
@@ -204,6 +205,12 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bo
 	checkedErr := t.checkError(subtest, err)
 	if checkedErr != nil {
 		return checkedErr
+=======
+func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*snapshot.Tree, state.StateDBI, error) {
+	snaps, statedb, root, err := t.RunNoVerify(subtest, vmconfig, snapshotter)
+	if checkedErr := t.checkError(subtest, err); checkedErr != nil {
+		return snaps, statedb, checkedErr
+>>>>>>> fffb49725 (stateful1.12final)
 	}
 	// The error has been checked; if it was unexpected, it's already returned.
 	if err != nil {
@@ -225,7 +232,11 @@ func (t *StateTest) Run(subtest StateSubtest, vmconfig vm.Config, snapshotter bo
 }
 
 // RunNoVerify runs a specific subtest and returns the statedb and post-state root
+<<<<<<< HEAD
 func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapshotter bool, scheme string) (*trie.Database, *snapshot.Tree, *state.StateDB, common.Hash, error) {
+=======
+func (t *StateTest) RunNoVerify(subtest StateSubtest, vmconfig vm.Config, snapshotter bool) (*snapshot.Tree, state.StateDBI, common.Hash, error) {
+>>>>>>> fffb49725 (stateful1.12final)
 	config, eips, err := GetChainConfig(subtest.Fork)
 	if err != nil {
 		return nil, nil, nil, common.Hash{}, UnsupportedForkError{subtest.Fork}
@@ -306,6 +317,7 @@ func (t *StateTest) gasLimit(subtest StateSubtest) uint64 {
 	return t.json.Tx.GasLimit[t.json.Post[subtest.Fork][subtest.Index].Indexes.Gas]
 }
 
+<<<<<<< HEAD
 func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool, scheme string) (*trie.Database, *snapshot.Tree, *state.StateDB) {
 	tconf := &trie.Config{Preimages: true}
 	if scheme == rawdb.HashScheme {
@@ -315,6 +327,10 @@ func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter boo
 	}
 	triedb := trie.NewDatabase(db, tconf)
 	sdb := state.NewDatabaseWithNodeDB(db, triedb)
+=======
+func MakePreState(db ethdb.Database, accounts core.GenesisAlloc, snapshotter bool) (*snapshot.Tree, state.StateDBI) {
+	sdb := state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true})
+>>>>>>> fffb49725 (stateful1.12final)
 	statedb, _ := state.New(types.EmptyRootHash, sdb, nil)
 	for addr, a := range accounts {
 		statedb.SetCode(addr, a.Code)

@@ -146,6 +146,28 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 
 func (b *testWorkerBackend) BlockChain() *core.BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *txpool.TxPool       { return b.txPool }
+<<<<<<< HEAD
+=======
+func (b *testWorkerBackend) StateAtBlock(block *types.Block, reexec uint64, base state.StateDBI, checkLive bool, preferDisk bool) (statedb state.StateDBI, err error) {
+	return nil, errors.New("not supported")
+}
+
+func (b *testWorkerBackend) newRandomUncle() *types.Block {
+	var parent *types.Block
+	cur := b.chain.CurrentBlock()
+	if cur.Number.Uint64() == 0 {
+		parent = b.chain.Genesis()
+	} else {
+		parent = b.chain.GetBlockByHash(b.chain.CurrentBlock().ParentHash)
+	}
+	blocks, _ := core.GenerateChain(b.chain.Config(), parent, b.chain.Engine(), b.db, 1, func(i int, gen *core.BlockGen) {
+		var addr = make([]byte, common.AddressLength)
+		rand.Read(addr)
+		gen.SetCoinbase(common.BytesToAddress(addr))
+	})
+	return blocks[0]
+}
+>>>>>>> fffb49725 (stateful1.12final)
 
 func (b *testWorkerBackend) newRandomTx(creation bool) *types.Transaction {
 	var tx *types.Transaction
