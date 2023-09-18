@@ -155,8 +155,8 @@ const (
 type blockChain interface {
 	CurrentBlock() *types.Header
 	GetBlock(hash common.Hash, number uint64) *types.Block
-	StateAt(root common.Hash) (*state.StateDB, error)
-
+	StateAt(root common.Hash) (state.StateDBI, error)
+	StateAtBlockNumber(uint64) (state.StateDBI, error)
 	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
 }
 
@@ -256,7 +256,7 @@ type TxPool struct {
 	eip1559  atomic.Bool // Fork indicator whether we are using EIP-1559 type transactions.
 	shanghai atomic.Bool // Fork indicator whether we are in the Shanghai stage.
 
-	currentState  *state.StateDB // Current state in the blockchain head
+	currentState  state.StateDBI // Current state in the blockchain head
 	pendingNonces *noncer        // Pending state tracking virtual nonces
 	currentMaxGas atomic.Uint64  // Current gas limit for transaction caps
 
@@ -402,7 +402,7 @@ func (pool *TxPool) loop() {
 				if time.Since(pool.beats[addr]) > pool.config.Lifetime {
 					list := pool.queue[addr].Flatten()
 					for _, tx := range list {
-						pool.removeTx(tx.Hash(), true)
+						pool.RemoveTx(tx.Hash(), true)
 					}
 					queuedEvictionMeter.Mark(int64(len(list)))
 				}
@@ -464,7 +464,7 @@ func (pool *TxPool) SetGasPrice(price *big.Int) {
 		// pool.priced is sorted by GasFeeCap, so we have to iterate through pool.all instead
 		drop := pool.all.RemotesBelowTip(price)
 		for _, tx := range drop {
-			pool.removeTx(tx.Hash(), false)
+			pool.RemoveTx(tx.Hash(), false)
 		}
 		pool.priced.Removed(len(drop))
 	}
@@ -772,7 +772,7 @@ func (pool *TxPool) add(tx *types.Transaction, local bool) (replaced bool, err e
 		for _, tx := range drop {
 			log.Trace("Discarding freshly underpriced transaction", "hash", tx.Hash(), "gasTipCap", tx.GasTipCap(), "gasFeeCap", tx.GasFeeCap())
 			underpricedTxMeter.Mark(1)
-			dropped := pool.removeTx(tx.Hash(), false)
+			dropped := pool.RemoveTx(tx.Hash(), false)
 			pool.changesSinceReorg += dropped
 		}
 	}
@@ -1077,10 +1077,10 @@ func (pool *TxPool) Has(hash common.Hash) bool {
 	return pool.all.Get(hash) != nil
 }
 
-// removeTx removes a single transaction from the queue, moving all subsequent
+// RemoveTx removes a single transaction from the queue, moving all subsequent
 // transactions back to the future queue.
 // Returns the number of transactions removed from the pending queue.
-func (pool *TxPool) removeTx(hash common.Hash, outofbound bool) int {
+func (pool *TxPool) RemoveTx(hash common.Hash, outofbound bool) int {
 	// Fetch the transaction we wish to delete
 	tx := pool.all.Get(hash)
 	if tx == nil {
@@ -1380,8 +1380,11 @@ func (pool *TxPool) reset(oldHead, newHead *types.Header) {
 	}
 	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
-		log.Error("Failed to reset txpool state", "err", err)
-		return
+		statedb, err = pool.chain.StateAtBlockNumber(newHead.Number.Uint64())
+		if err != nil {
+			log.Error("Failed to reset txpool state", "err", err)
+			return
+		}
 	}
 	pool.currentState = statedb
 	pool.pendingNonces = newNoncer(statedb)
@@ -1582,7 +1585,7 @@ func (pool *TxPool) truncateQueue() {
 		// Drop all transactions if they are less than the overflow
 		if size := uint64(list.Len()); size <= drop {
 			for _, tx := range list.Flatten() {
-				pool.removeTx(tx.Hash(), true)
+				pool.RemoveTx(tx.Hash(), true)
 			}
 			drop -= size
 			queuedRateLimitMeter.Mark(int64(size))
@@ -1591,7 +1594,7 @@ func (pool *TxPool) truncateQueue() {
 		// Otherwise drop only last few transactions
 		txs := list.Flatten()
 		for i := len(txs) - 1; i >= 0 && drop > 0; i-- {
-			pool.removeTx(txs[i].Hash(), true)
+			pool.RemoveTx(txs[i].Hash(), true)
 			drop--
 			queuedRateLimitMeter.Mark(1)
 		}

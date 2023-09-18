@@ -57,7 +57,7 @@ var noopReleaser = tracers.StateReleaseFunc(func() {})
 //   - preferDisk: this arg can be used by the caller to signal that even though the 'base' is
 //     provided, it would be preferable to start from a fresh state, if we have it
 //     on disk.
-func (eth *Ethereum) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (statedb *state.StateDB, release tracers.StateReleaseFunc, err error) {
+func (eth *Ethereum) StateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base state.StateDBI, readOnly bool, preferDisk bool) (statedb state.StateDBI, release tracers.StateReleaseFunc, err error) {
 	var (
 		current  *types.Block
 		database state.Database
@@ -189,7 +189,7 @@ func (eth *Ethereum) StateAtBlock(ctx context.Context, block *types.Block, reexe
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
+func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, state.StateDBI, tracers.StateReleaseFunc, error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, nil, errors.New("no transaction in genesis")
@@ -213,13 +213,12 @@ func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block,
 	for idx, tx := range block.Transactions() {
 		// Assemble the transaction call message and return if the requested offset
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
-		txContext := core.NewEVMTxContext(msg)
 		context := core.NewEVMBlockContext(block.Header(), eth.blockchain, nil)
 		if idx == txIndex {
 			return msg, context, statedb, release, nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(context, txContext, statedb, eth.blockchain.Config(), vm.Config{})
+		vmenv, vmError := eth.APIBackend.GetEVM(ctx, msg, statedb, block.Header(), &vm.Config{}, &context)
 		statedb.SetTxContext(tx.Hash(), idx)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
@@ -227,6 +226,9 @@ func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block,
 		// Ensure any modifications are committed to the state
 		// Only delete empty objects if EIP158/161 (a.k.a Spurious Dragon) is in effect
 		statedb.Finalise(vmenv.ChainConfig().IsEIP158(block.Number()))
+		if err := vmError(); err != nil {
+			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("execution error: %v", err)
+		}
 	}
 	return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction index %d out of range for block %#x", txIndex, block.Hash())
 }

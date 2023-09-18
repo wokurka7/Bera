@@ -25,7 +25,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/eth/filters"
-	"github.com/ethereum/go-ethereum/internal/ethapi"
+	"github.com/ethereum/go-ethereum/ethapi"
 	"github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/graph-gophers/graphql-go"
@@ -103,15 +103,19 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type Registerable interface {
+	RegisterHandler(name string, path string, handler http.Handler)
+}
+
 // New constructs a new GraphQL service instance.
-func New(stack *node.Node, backend ethapi.Backend, filterSystem *filters.FilterSystem, cors, vhosts []string) error {
+func New(stack Registerable, backend ethapi.Backend, filterSystem *filters.FilterSystem, cors, vhosts []string) error {
 	_, err := newHandler(stack, backend, filterSystem, cors, vhosts)
 	return err
 }
 
 // newHandler returns a new `http.Handler` that will answer GraphQL queries.
 // It additionally exports an interactive query browser on the / endpoint.
-func newHandler(stack *node.Node, backend ethapi.Backend, filterSystem *filters.FilterSystem, cors, vhosts []string) (*handler, error) {
+func newHandler(stack Registerable, backend ethapi.Backend, filterSystem *filters.FilterSystem, cors, vhosts []string) (*handler, error) {
 	q := Resolver{backend, filterSystem}
 
 	s, err := graphql.ParseSchema(schema, &q)
