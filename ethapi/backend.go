@@ -124,9 +124,6 @@ func GetAPIs(apiBackend Backend, chain core.ChainContext) []rpc.API {
 		}, {
 			Namespace: "personal",
 			Service:   NewPersonalAccountAPI(apiBackend, nonceLock),
-		}, {
-			Namespace: "eth",
-			Service:   NewBundleAPI(apiBackend, chain),
 		},
 	}
 }

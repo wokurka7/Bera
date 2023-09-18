@@ -29,7 +29,6 @@ import (
 // StateDBI is an EVM database for full state querying.
 type StateDBI interface {
 	CreateAccount(common.Address)
-
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
@@ -56,8 +55,10 @@ type StateDBI interface {
 	SelfDestruct(common.Address)
 	HasSelfDestructed(common.Address) bool
 
+	Selfdestruct6780(common.Address)
+
 	// Exist reports whether the given account exists in state.
-	// Notably this should also return true for suicided accounts.
+	// Notably this should also return true for self-destructed accounts.
 	Exist(common.Address) bool
 	// Empty returns whether the given account is empty. Empty
 	// is defined according to EIP161 (balance = nonce = code = 0).
@@ -77,10 +78,11 @@ type StateDBI interface {
 	Snapshot() int
 
 	AddLog(*types.Log)
+	AddPreimage(common.Hash, []byte)
+
 	Logs() []*types.Log
 	GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) []*types.Log
 	TxIndex() int
-	AddPreimage(common.Hash, []byte)
 	Preimages() map[common.Hash][]byte
 
 	GetOrNewStateObject(addr common.Address) *StateObject
@@ -90,10 +92,10 @@ type StateDBI interface {
 	RawDump(opts *DumpConfig) Dump
 	IteratorDump(opts *DumpConfig) IteratorDump
 	Database() Database
-	StorageTrie(addr common.Address) (Trie, error)
 	Error() error
 	SetBalance(addr common.Address, amount *big.Int)
 	SetStorage(addr common.Address, storage map[common.Hash]common.Hash)
+	GetStorageRoot(addr common.Address) common.Hash
 	Finalise(deleteEmptyObjects bool)
 	Commit(uint64, bool) (common.Hash, error)
 	Copy() StateDBI

@@ -64,12 +64,8 @@ func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base state
 }
 
 type testBlockChain struct {
-<<<<<<< HEAD
 	config        *params.ChainConfig
-	statedb       *state.StateDB
-=======
 	statedb       state.StateDBI
->>>>>>> fffb49725 (stateful1.12final)
 	gasLimit      uint64
 	chainHeadFeed *event.Feed
 }

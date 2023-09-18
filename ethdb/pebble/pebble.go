@@ -579,13 +579,10 @@ type pebbleIterator struct {
 // of database content with a particular key prefix, starting at a particular
 // initial key (or after, if it does not exist).
 func (d *Database) NewIterator(prefix []byte, start []byte) ethdb.Iterator {
-	iter, err := d.db.NewIter(&pebble.IterOptions{
+	iter := d.db.NewIter(&pebble.IterOptions{
 		LowerBound: append(prefix, start...),
 		UpperBound: upperBound(prefix),
 	})
-	if err != nil {
-		panic(err)
-	}
 	iter.First()
 	return &pebbleIterator{iter: iter, moved: true}
 }

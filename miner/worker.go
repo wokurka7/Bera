@@ -82,22 +82,11 @@ var (
 // environment is the worker's current environment and holds all
 // information of the sealing block generation.
 type environment struct {
-<<<<<<< HEAD
 	signer   types.Signer
-	state    *state.StateDB // apply state changes here
+	state    state.StateDBI // apply state changes here
 	tcount   int            // tx count in cycle
 	gasPool  *core.GasPool  // available gas used to pack transactions
 	coinbase common.Address
-=======
-	signer types.Signer
-
-	state     state.StateDBI          // apply state changes here
-	ancestors mapset.Set[common.Hash] // ancestor set (used for checking uncle parent validity)
-	family    mapset.Set[common.Hash] // family set (used for checking uncle invalidity)
-	tcount    int                     // tx count in cycle
-	gasPool   *core.GasPool           // available gas used to pack transactions
-	coinbase  common.Address
->>>>>>> fffb49725 (stateful1.12final)
 
 	header   *types.Header
 	txs      []*types.Transaction
@@ -346,25 +335,9 @@ func (w *worker) setRecommitInterval(interval time.Duration) {
 	}
 }
 
-<<<<<<< HEAD
 // pending returns the pending state and corresponding block. The returned
 // values can be nil in case the pending block is not initialized.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
-=======
-// disablePreseal disables pre-sealing feature
-func (w *worker) disablePreseal() {
-	w.noempty.Store(true)
-}
-
-// enablePreseal enables pre-sealing feature
-func (w *worker) enablePreseal() {
-	w.noempty.Store(false)
-}
-
-// pending returns the pending state and corresponding block.
 func (w *worker) pending() (*types.Block, state.StateDBI) {
-	// return a snapshot to avoid contention on currentMu mutex
->>>>>>> fffb49725 (stateful1.12final)
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
 	if w.snapshotState == nil {

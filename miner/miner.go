@@ -202,14 +202,9 @@ func (miner *Miner) SetRecommitInterval(interval time.Duration) {
 	miner.worker.setRecommitInterval(interval)
 }
 
-<<<<<<< HEAD
 // Pending returns the currently pending block and associated state. The returned
 // values can be nil in case the pending block is not initialized
-func (miner *Miner) Pending() (*types.Block, *state.StateDB) {
-=======
-// Pending returns the currently pending block and associated state.
 func (miner *Miner) Pending() (*types.Block, state.StateDBI) {
->>>>>>> fffb49725 (stateful1.12final)
 	return miner.worker.pending()
 }
 

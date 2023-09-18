@@ -1147,6 +1147,10 @@ func (c *bls12381MapG2) Run(ctx context.Context, _ PrecompileEVM, input []byte, 
 	return g.EncodePoint(r), nil
 }
 
+func (b *kzgPointEvaluation) RegistryKey() common.Address {
+	return common.BytesToAddress([]byte{19})
+}
+
 // kzgPointEvaluation implements the EIP-4844 point evaluation precompile.
 type kzgPointEvaluation struct{}
 
@@ -1168,7 +1172,7 @@ var (
 )
 
 // Run executes the point evaluation precompile.
-func (b *kzgPointEvaluation) Run(input []byte) ([]byte, error) {
+func (b *kzgPointEvaluation) Run(_ context.Context, _ PrecompileEVM, input []byte, _ common.Address, _ *big.Int) ([]byte, error) {
 	if len(input) != blobVerifyInputLength {
 		return nil, errBlobVerifyInvalidInputLength
 	}
