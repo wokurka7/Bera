@@ -584,7 +584,7 @@ func (b *SimulatedBackend) EstimateGas(ctx context.Context, call ethereum.CallMs
 		}
 	}
 	// Reject the transaction as invalid if it still fails at the highest allowance
-	if hi == cap {
+	if hi >= cap {
 		failed, result, err := executable(hi)
 		if err != nil {
 			return 0, err
