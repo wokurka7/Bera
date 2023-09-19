@@ -1285,13 +1285,6 @@ type Resolver struct {
 	filterSystem *filters.FilterSystem
 }
 
-func NewResolver(backend ethapi.Backend, filterSystem *filters.FilterSystem) *Resolver {
-	return &Resolver{
-		backend:      backend,
-		filterSystem: filterSystem,
-	}
-}
-
 func (r *Resolver) Block(ctx context.Context, args struct {
 	Number *Long
 	Hash   *common.Hash
