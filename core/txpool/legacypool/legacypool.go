@@ -120,6 +120,9 @@ type BlockChain interface {
 
 	// StateAt returns a state database for a given root hash (generally the head).
 	StateAt(root common.Hash) (state.StateDBI, error)
+
+	// StateAtBlockNumber returns a state database at the given block number.
+	StateAtBlockNumber(number uint64) (state.StateDBI, error)
 }
 
 // Config are the configuration parameters of the transaction pool.
@@ -1393,8 +1396,11 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 	}
 	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
-		log.Error("Failed to reset txpool state", "err", err)
-		return
+		statedb, err = pool.chain.StateAtBlockNumber(newHead.Number.Uint64())
+		if err != nil {
+			log.Error("Failed to reset txpool state", "err", err)
+			return
+		}
 	}
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
