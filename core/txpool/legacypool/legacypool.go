@@ -1391,20 +1391,30 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 		}
 	}
 	// Initialize the internal state to the current head
+	// Initialize the internal state to the current head
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
+	}
+	if newHead == nil {
+		newHead = &types.Header{
+			Number: big.NewInt(0),
+		}
 	}
 	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
 		statedb, err = pool.chain.StateAtBlockNumber(newHead.Number.Uint64())
 		if err != nil {
-			log.Error("Failed to reset txpool state", "err", err)
-			return
+			log.Warn("Failed to get new state", "err", err)
 		}
 	}
+
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
-	pool.pendingNonces = newNoncer(statedb)
+	if pool.currentState != nil {
+		pool.pendingNonces = newNoncer(statedb)
+	} else {
+		pool.pendingNonces = &noncer{}
+	}
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))
