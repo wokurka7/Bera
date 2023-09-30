@@ -30,6 +30,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/eth/downloader"
 	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/log"
@@ -39,8 +40,21 @@ import (
 // Backend wraps all methods required for mining. Only full node is capable
 // to offer all the functions here.
 type Backend interface {
-	BlockChain() *core.BlockChain
+	BlockChain() BlockChain
 	TxPool() *txpool.TxPool
+}
+
+type BlockChain interface {
+	GetVMConfig() *vm.Config
+	Engine() consensus.Engine
+	CurrentBlock() *types.Header
+	StateAt(common.Hash) (state.StateDBI, error)
+	StateAtBlockNumber(uint64) (state.StateDBI, error)
+	GetBlockByHash(common.Hash) *types.Block
+	consensus.ChainHeaderReader
+	HasBlock(common.Hash, uint64) bool
+	SubscribeChainHeadEvent(chan<- core.ChainHeadEvent) event.Subscription
+	WriteBlockAndSetHead(block *types.Block, receipts []*types.Receipt, logs []*types.Log, state state.StateDBI, emitHeadEvent bool) (status core.WriteStatus, err error)
 }
 
 // Config is the configuration parameters of mining.

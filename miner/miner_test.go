@@ -40,7 +40,7 @@ import (
 )
 
 type mockBackend struct {
-	bc     *core.BlockChain
+	bc     BlockChain
 	txPool *txpool.TxPool
 }
 
@@ -51,7 +51,7 @@ func NewMockBackend(bc *core.BlockChain, txPool *txpool.TxPool) *mockBackend {
 	}
 }
 
-func (m *mockBackend) BlockChain() *core.BlockChain {
+func (m *mockBackend) BlockChain() BlockChain {
 	return m.bc
 }
 

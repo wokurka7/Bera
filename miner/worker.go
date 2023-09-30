@@ -176,7 +176,7 @@ type worker struct {
 	chainConfig *params.ChainConfig
 	engine      consensus.Engine
 	eth         Backend
-	chain       *core.BlockChain
+	chain       BlockChain
 
 	// Feeds
 	pendingLogsFeed event.Feed
@@ -706,7 +706,10 @@ func (w *worker) makeEnv(parent *types.Header, header *types.Header, coinbase co
 	// the miner to speed block sealing up a bit.
 	state, err := w.chain.StateAt(parent.Root)
 	if err != nil {
-		return nil, err
+		state, err = w.chain.StateAtBlockNumber(parent.Number.Uint64())
+		if err != nil {
+			return nil, err
+		}
 	}
 	state.StartPrefetcher("miner")
 
