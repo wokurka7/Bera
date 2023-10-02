@@ -40,7 +40,7 @@ import (
 // Backend wraps all methods required for mining. Only full node is capable
 // to offer all the functions here.
 type Backend interface {
-	BlockChain() BlockChain
+	MinerChain() BlockChain
 	TxPool() *txpool.TxPool
 }
 

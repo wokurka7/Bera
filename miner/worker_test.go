@@ -145,6 +145,7 @@ func newTestWorkerBackend(t *testing.T, chainConfig *params.ChainConfig, engine 
 }
 
 func (b *testWorkerBackend) BlockChain() BlockChain { return b.chain }
+func (b *testWorkerBackend) MinerChain() BlockChain { return b.chain }
 func (b *testWorkerBackend) TxPool() *txpool.TxPool { return b.txPool }
 
 func (b *testWorkerBackend) newRandomTx(creation bool) *types.Transaction {

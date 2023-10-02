@@ -55,6 +55,10 @@ func (m *mockBackend) BlockChain() BlockChain {
 	return m.bc
 }
 
+func (m *mockBackend) MinerChain() BlockChain {
+	return m.bc
+}
+
 func (m *mockBackend) TxPool() *txpool.TxPool {
 	return m.txPool
 }
