@@ -1629,7 +1629,12 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 	isPostMerge := header.Difficulty.Cmp(common.Big0) == 0
 	rules := b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(&rules) // TODO: use evm precompile manager instead
+	state, _, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+
+	precompiles := vm.ActivePrecompiles(vm.NewEVM(vm.BlockContext{}, vm.TxContext{}, state, b.ChainConfig(), vm.Config{}), rules) // TODO: use evm precompile manager instead
 
 	// Create an initial tracer
 	prevTracer := logger.NewAccessListTracer(nil, args.from(), to, precompiles)

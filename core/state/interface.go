@@ -103,4 +103,5 @@ type StateDBI interface {
 	StopPrefetcher()
 	StartPrefetcher(namespace string)
 	IntermediateRoot(deleteEmptyObjects bool) common.Hash
+	GetPrecompileManager() any
 }
