@@ -153,19 +153,25 @@ func init() {
 }
 
 // ActivePrecompiles returns the precompiles enabled with the current configuration.
-func ActivePrecompiles(rules *params.Rules) []common.Address {
+func ActivePrecompiles(evm *EVM, rules params.Rules) []common.Address {
+	var precompiles []common.Address
 	switch {
 	case rules.IsCancun:
-		return PrecompiledAddressesCancun
+		precompiles = append(precompiles, PrecompiledAddressesCancun...)
 	case rules.IsBerlin:
-		return PrecompiledAddressesBerlin
+		precompiles = append(precompiles, PrecompiledAddressesBerlin...)
 	case rules.IsIstanbul:
-		return PrecompiledAddressesIstanbul
+		precompiles = append(precompiles, PrecompiledAddressesIstanbul...)
 	case rules.IsByzantium:
-		return PrecompiledAddressesByzantium
+		precompiles = append(precompiles, PrecompiledAddressesByzantium...)
 	default:
-		return PrecompiledAddressesHomestead
+		precompiles = append(precompiles, PrecompiledAddressesHomestead...)
 	}
+
+	if evm != nil {
+		precompiles = append(precompiles, evm.PrecompileManager.GetActive(rules)...)
+	}
+	return precompiles
 }
 
 // ECRECOVER implemented as a native contract.
