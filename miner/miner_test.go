@@ -68,6 +68,7 @@ func (m *mockBackend) StateAtBlock(block *types.Block, reexec uint64, base state
 }
 
 type testBlockChain struct {
+	root          common.Hash
 	config        *params.ChainConfig
 	statedb       state.StateDBI
 	gasLimit      uint64
@@ -95,6 +96,10 @@ func (bc *testBlockChain) StateAt(common.Hash) (state.StateDBI, error) {
 
 func (bc *testBlockChain) StateAtBlockNumber(uint64) (state.StateDBI, error) {
 	return bc.statedb, nil
+}
+
+func (bc *testBlockChain) HasState(root common.Hash) bool {
+	return bc.root == root
 }
 
 func (bc *testBlockChain) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
@@ -310,7 +315,7 @@ func createMiner(t *testing.T) (*Miner, *event.TypeMux, func(skipMiner bool)) {
 		t.Fatalf("can't create new chain %v", err)
 	}
 	statedb, _ := state.New(bc.Genesis().Root(), bc.StateCache(), nil)
-	blockchain := &testBlockChain{chainConfig, statedb, 10000000, new(event.Feed)}
+	blockchain := &testBlockChain{bc.Genesis().Root(), chainConfig, statedb, 10000000, new(event.Feed)}
 
 	pool := legacypool.New(testTxPoolConfig, blockchain)
 	txpool, _ := txpool.New(new(big.Int).SetUint64(testTxPoolConfig.PriceLimit), blockchain, []txpool.SubPool{pool})
