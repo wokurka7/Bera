@@ -285,18 +285,18 @@ func (s *StateDB) Empty(addr common.Address) bool {
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
 func (s *StateDB) GetBalance(addr common.Address) *big.Int {
-	StateObject := s.getStateObject(addr)
-	if StateObject != nil {
-		return StateObject.Balance()
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.Balance()
 	}
 	return common.Big0
 }
 
 // GetNonce retrieves the nonce from the given address or 0 if object not found
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
-	StateObject := s.getStateObject(addr)
-	if StateObject != nil {
-		return StateObject.Nonce()
+	stateObject := s.getStateObject(addr)
+	if stateObject != nil {
+		return stateObject.Nonce()
 	}
 
 	return 0
