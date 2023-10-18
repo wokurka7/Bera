@@ -486,7 +486,6 @@ func (srv *Server) Start() (err error) {
 	if err := srv.setupLocalNode(); err != nil {
 		return err
 	}
-
 	srv.setupPortMapping()
 
 	if srv.ListenAddr != "" {

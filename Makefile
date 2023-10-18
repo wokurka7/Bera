@@ -37,4 +37,4 @@ devtools:
 	env GOBIN= go install github.com/golang/protobuf/protoc-gen-go@latest
 	env GOBIN= go install ./cmd/abigen
 	@type "solc" 2> /dev/null || echo 'Please install solc'
-	@type "protoc" 2> /dev/null || echo 'Please install protoc'a
+	@type "protoc" 2> /dev/null || echo 'Please install protoc'
