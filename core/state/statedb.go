@@ -138,6 +138,13 @@ type StateDB struct {
 
 	// Testing hooks
 	onCommit func(states *triestate.Set) // Hook invoked when commit is performed
+
+	extJournal Revertable
+}
+
+type Revertable interface {
+	Snapshot() int
+	RevertToSnapshot(int)
 }
 
 // New creates a new state from a given trie.
@@ -794,6 +801,11 @@ func (s *StateDB) Snapshot() int {
 	id := s.nextRevisionId
 	s.nextRevisionId++
 	s.validRevisions = append(s.validRevisions, revision{id, s.journal.length()})
+	if s.extJournal != nil {
+		if s.extJournal.Snapshot() != id {
+			panic("REEEE")
+		}
+	}
 	return id
 }
 
@@ -811,6 +823,10 @@ func (s *StateDB) RevertToSnapshot(revid int) {
 	// Replay the journal to undo changes and remove invalidated snapshots
 	s.journal.revert(s, snapshot)
 	s.validRevisions = s.validRevisions[:idx]
+
+	if s.extJournal != nil {
+		s.extJournal.RevertToSnapshot(revid)
+	}
 }
 
 // GetRefund returns the current value of the refund counter.
