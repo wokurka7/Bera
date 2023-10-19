@@ -6,10 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/miner"
-	"github.com/ethereum/go-ethereum/params"
 )
 
 // BuildBlock is a convenience function to build a block.
@@ -51,44 +49,6 @@ func (s *MinerAPI) BuildBlock(attrs *miner.BuildPayloadArgs) (*engine.ExecutionP
 	}
 }
 
-func (s *MinerAPI) GetBlockByHash(hash common.Hash) *types.Block {
-	return s.e.BlockChain().GetBlockByHash(hash)
-}
-
-func (s *MinerAPI) Config() *params.ChainConfig {
-	return s.e.BlockChain().Config()
-}
-
 func (s *MinerAPI) Etherbase() common.Address {
 	return s.e.etherbase
-}
-
-func (s *MinerAPI) NewPayloadV3(
-	params engine.ExecutableData, versionedHashes []common.Hash, beaconRoot *common.Hash,
-) (engine.PayloadStatusV1, error) {
-	var (
-		block *types.Block
-		err   error
-	)
-
-	if block, err = engine.ExecutableDataToBlock(
-		params, nil, nil,
-	); err != nil {
-		log.Error("failed to build evm block", "err", err)
-		return engine.STATUS_INVALID.PayloadStatus, err
-	}
-	if err = s.e.BlockChain().InsertBlockWithoutSetHead(block); err != nil {
-		log.Error("failed to insert evm block", "err", err)
-		return engine.STATUS_INVALID.PayloadStatus, err
-	}
-
-	if _, err = s.e.BlockChain().SetCanonical(block); err != nil {
-		return engine.STATUS_INVALID.PayloadStatus, err
-	}
-
-	insertedHash := s.e.BlockChain().CurrentBlock().Hash()
-
-	return engine.PayloadStatusV1{
-		Status: engine.VALID, LatestValidHash: &insertedHash,
-	}, nil
 }
