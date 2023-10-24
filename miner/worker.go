@@ -456,7 +456,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
-			commit(commitInterruptNewHead)
+			// commit(commitInterruptNewHead)
 
 		case <-timer.C:
 			// If sealing is running resubmit a new work cycle periodically to pull in
@@ -467,7 +467,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
-				commit(commitInterruptResubmit)
+				// commit(commitInterruptResubmit)
 			}
 
 		case interval := <-w.resubmitIntervalCh:
