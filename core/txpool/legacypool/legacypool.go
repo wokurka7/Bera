@@ -308,6 +308,9 @@ func (pool *LegacyPool) Init(gasTip *big.Int, head *types.Header, reserve txpool
 	statedb, err := pool.chain.StateAt(head.Root)
 	if err != nil {
 		statedb, err = pool.chain.StateAt(types.EmptyRootHash)
+		if err != nil {
+			statedb, err = pool.chain.StateAtBlockNumber(head.Number.Uint64())
+		}
 	}
 	if err != nil {
 		return err
