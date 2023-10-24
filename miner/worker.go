@@ -533,39 +533,39 @@ func (w *worker) mainLoop() {
 			// Note all transactions received may not be continuous with transactions
 			// already included in the current sealing block. These transactions will
 			// be automatically eliminated.
-			if !w.isRunning() && w.current != nil {
-				// If block is already full, abort
-				if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
-					continue
-				}
-				txs := make(map[common.Address][]*txpool.LazyTransaction, len(ev.Txs))
-				for _, tx := range ev.Txs {
-					acc, _ := types.Sender(w.current.signer, tx)
-					txs[acc] = append(txs[acc], &txpool.LazyTransaction{
-						Hash:      tx.Hash(),
-						Tx:        tx.WithoutBlobTxSidecar(),
-						Time:      tx.Time(),
-						GasFeeCap: tx.GasFeeCap(),
-						GasTipCap: tx.GasTipCap(),
-					})
-				}
-				txset := NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
-				tcount := w.current.tcount
-				w.commitTransactions(w.current, txset, nil)
+			// if !w.isRunning() && w.current != nil {
+			// 	// If block is already full, abort
+			// 	if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
+			// 		continue
+			// 	}
+			// 	txs := make(map[common.Address][]*txpool.LazyTransaction, len(ev.Txs))
+			// 	for _, tx := range ev.Txs {
+			// 		acc, _ := types.Sender(w.current.signer, tx)
+			// 		txs[acc] = append(txs[acc], &txpool.LazyTransaction{
+			// 			Hash:      tx.Hash(),
+			// 			Tx:        tx.WithoutBlobTxSidecar(),
+			// 			Time:      tx.Time(),
+			// 			GasFeeCap: tx.GasFeeCap(),
+			// 			GasTipCap: tx.GasTipCap(),
+			// 		})
+			// 	}
+			// 	txset := NewTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
+			// 	tcount := w.current.tcount
+			// 	w.commitTransactions(w.current, txset, nil)
 
-				// Only update the snapshot if any new transactions were added
-				// to the pending block
-				if tcount != w.current.tcount {
-					w.updateSnapshot(w.current)
-				}
-			} else {
-				// Special case, if the consensus engine is 0 period clique(dev mode),
-				// submit sealing work here since all empty submission will be rejected
-				// by clique. Of course the advance sealing(empty submission) is disabled.
-				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
-					w.commitWork(nil, time.Now().Unix())
-				}
-			}
+			// 	// Only update the snapshot if any new transactions were added
+			// 	// to the pending block
+			// 	if tcount != w.current.tcount {
+			// 		w.updateSnapshot(w.current)
+			// 	}
+			// } else {
+			// 	// Special case, if the consensus engine is 0 period clique(dev mode),
+			// 	// submit sealing work here since all empty submission will be rejected
+			// 	// by clique. Of course the advance sealing(empty submission) is disabled.
+			// 	if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
+			// 		w.commitWork(nil, time.Now().Unix())
+			// 	}
+			// }
 			w.newTxs.Add(int32(len(ev.Txs)))
 
 		// System stopped
