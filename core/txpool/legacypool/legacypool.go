@@ -115,7 +115,10 @@ type BlockChain interface {
 	GetBlock(hash common.Hash, number uint64) *types.Block
 
 	// StateAt returns a state database for a given root hash (generally the head).
-	StateAt(root common.Hash) (*state.StateDB, error)
+	StateAt(root common.Hash) (state.StateDBI, error)
+
+	// StateAtBlockNumber returns a state database at the given block number.
+	StateAtBlockNumber(number uint64) (state.StateDBI, error)
 }
 
 // Config are the configuration parameters of the transaction pool.
@@ -208,7 +211,7 @@ type LegacyPool struct {
 	mu          sync.RWMutex
 
 	currentHead   atomic.Pointer[types.Header] // Current head of the blockchain
-	currentState  *state.StateDB               // Current state in the blockchain head
+	currentState  state.StateDBI               // Current state in the blockchain head
 	pendingNonces *noncer                      // Pending state tracking virtual nonces
 
 	locals  *accountSet // Set of local transaction to exempt from eviction rules
@@ -300,6 +303,9 @@ func (pool *LegacyPool) Init(gasTip *big.Int, head *types.Header, reserve txpool
 	statedb, err := pool.chain.StateAt(head.Root)
 	if err != nil {
 		statedb, err = pool.chain.StateAt(types.EmptyRootHash)
+		if err != nil {
+			statedb, err = pool.chain.StateAtBlockNumber(head.Number.Uint64())
+		}
 	}
 	if err != nil {
 		return err
@@ -1399,17 +1405,31 @@ func (pool *LegacyPool) reset(oldHead, newHead *types.Header) {
 		}
 	}
 	// Initialize the internal state to the current head
+	// Initialize the internal state to the current head
 	if newHead == nil {
 		newHead = pool.chain.CurrentBlock() // Special case during testing
 	}
+	if newHead == nil {
+		newHead = &types.Header{
+			Number: big.NewInt(0),
+		}
+	}
 	statedb, err := pool.chain.StateAt(newHead.Root)
 	if err != nil {
-		log.Error("Failed to reset txpool state", "err", err)
-		return
+		// Beginning of Block Number X == the same as State Root of Block Number X-1
+		statedb, err = pool.chain.StateAtBlockNumber(newHead.Number.Uint64() + 1)
+		if err != nil {
+			log.Warn("Failed to get new state", "err", err)
+		}
 	}
+
 	pool.currentHead.Store(newHead)
 	pool.currentState = statedb
-	pool.pendingNonces = newNoncer(statedb)
+	if pool.currentState != nil {
+		pool.pendingNonces = newNoncer(statedb)
+	} else {
+		pool.pendingNonces = &noncer{}
+	}
 
 	// Inject any transactions discarded due to reorgs
 	log.Debug("Reinjecting stale transactions", "count", len(reinject))

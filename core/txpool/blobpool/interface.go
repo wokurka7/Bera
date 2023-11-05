@@ -40,5 +40,8 @@ type BlockChain interface {
 	GetBlock(hash common.Hash, number uint64) *types.Block
 
 	// StateAt returns a state database for a given root hash (generally the head).
-	StateAt(root common.Hash) (*state.StateDB, error)
+	StateAt(root common.Hash) (state.StateDBI, error)
+
+	// StateAtBlockNumber returns a state database for a given block number.
+	StateAtBlockNumber(number uint64) (state.StateDBI, error)
 }
