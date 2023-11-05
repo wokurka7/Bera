@@ -83,7 +83,7 @@ var (
 // information of the sealing block generation.
 type environment struct {
 	signer   types.Signer
-	state    *state.StateDB // apply state changes here
+	state    state.StateDBI // apply state changes here
 	tcount   int            // tx count in cycle
 	gasPool  *core.GasPool  // available gas used to pack transactions
 	coinbase common.Address
@@ -131,7 +131,7 @@ func (env *environment) discard() {
 // task contains all information for consensus engine sealing and result submitting.
 type task struct {
 	receipts  []*types.Receipt
-	state     *state.StateDB
+	state     state.StateDBI
 	block     *types.Block
 	createdAt time.Time
 }
@@ -176,7 +176,7 @@ type worker struct {
 	chainConfig *params.ChainConfig
 	engine      consensus.Engine
 	eth         Backend
-	chain       *core.BlockChain
+	chain       BlockChain
 
 	// Feeds
 	pendingLogsFeed event.Feed
@@ -212,7 +212,7 @@ type worker struct {
 	snapshotMu       sync.RWMutex // The lock used to protect the snapshots below
 	snapshotBlock    *types.Block
 	snapshotReceipts types.Receipts
-	snapshotState    *state.StateDB
+	snapshotState    state.StateDBI
 
 	// atomic status counters
 	running atomic.Bool  // The indicator whether the consensus engine is running or not.
@@ -246,7 +246,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 		chainConfig:        chainConfig,
 		engine:             engine,
 		eth:                eth,
-		chain:              eth.BlockChain(),
+		chain:              eth.MinerChain(),
 		mux:                mux,
 		isLocalBlock:       isLocalBlock,
 		coinbase:           config.Etherbase,
@@ -266,7 +266,7 @@ func newWorker(config *Config, chainConfig *params.ChainConfig, engine consensus
 	// Subscribe for transaction insertion events (whether from network or resurrects)
 	worker.txsSub = eth.TxPool().SubscribeTransactions(worker.txsCh, true)
 	// Subscribe events for blockchain
-	worker.chainHeadSub = eth.BlockChain().SubscribeChainHeadEvent(worker.chainHeadCh)
+	worker.chainHeadSub = eth.MinerChain().SubscribeChainHeadEvent(worker.chainHeadCh)
 
 	// Sanitize recommit interval if the user-specified one is too short.
 	recommit := worker.config.Recommit
@@ -337,7 +337,7 @@ func (w *worker) setRecommitInterval(interval time.Duration) {
 
 // pending returns the pending state and corresponding block. The returned
 // values can be nil in case the pending block is not initialized.
-func (w *worker) pending() (*types.Block, *state.StateDB) {
+func (w *worker) pending() (*types.Block, state.StateDBI) {
 	w.snapshotMu.RLock()
 	defer w.snapshotMu.RUnlock()
 	if w.snapshotState == nil {
@@ -422,7 +422,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 	<-timer.C // discard the initial tick
 
 	// commit aborts in-flight transaction execution with given signal and resubmits a new one.
-	commit := func(s int32) {
+	_ = func(s int32) {
 		if interrupt != nil {
 			interrupt.Store(s)
 		}
@@ -451,12 +451,12 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 		case <-w.startCh:
 			clearPending(w.chain.CurrentBlock().Number.Uint64())
 			timestamp = time.Now().Unix()
-			commit(commitInterruptNewHead)
+			// commit(commitInterruptNewHead)
 
 		case head := <-w.chainHeadCh:
 			clearPending(head.Block.NumberU64())
 			timestamp = time.Now().Unix()
-			commit(commitInterruptNewHead)
+			// commit(commitInterruptNewHead)
 
 		case <-timer.C:
 			// If sealing is running resubmit a new work cycle periodically to pull in
@@ -467,7 +467,7 @@ func (w *worker) newWorkLoop(recommit time.Duration) {
 					timer.Reset(recommit)
 					continue
 				}
-				commit(commitInterruptResubmit)
+				// commit(commitInterruptResubmit)
 			}
 
 		case interval := <-w.resubmitIntervalCh:
@@ -527,49 +527,49 @@ func (w *worker) mainLoop() {
 		case req := <-w.getWorkCh:
 			req.result <- w.generateWork(req.params)
 
-		case ev := <-w.txsCh:
+		case _ = <-w.txsCh:
 			// Apply transactions to the pending state if we're not sealing
 			//
 			// Note all transactions received may not be continuous with transactions
 			// already included in the current sealing block. These transactions will
 			// be automatically eliminated.
-			if !w.isRunning() && w.current != nil {
-				// If block is already full, abort
-				if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
-					continue
-				}
-				txs := make(map[common.Address][]*txpool.LazyTransaction, len(ev.Txs))
-				for _, tx := range ev.Txs {
-					acc, _ := types.Sender(w.current.signer, tx)
-					txs[acc] = append(txs[acc], &txpool.LazyTransaction{
-						Pool:      w.eth.TxPool(), // We don't know where this came from, yolo resolve from everywhere
-						Hash:      tx.Hash(),
-						Tx:        nil, // Do *not* set this! We need to resolve it later to pull blobs in
-						Time:      tx.Time(),
-						GasFeeCap: tx.GasFeeCap(),
-						GasTipCap: tx.GasTipCap(),
-						Gas:       tx.Gas(),
-						BlobGas:   tx.BlobGas(),
-					})
-				}
-				txset := newTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
-				tcount := w.current.tcount
-				w.commitTransactions(w.current, txset, nil)
+			// if !w.isRunning() && w.current != nil {
+			// 	// If block is already full, abort
+			// 	if gp := w.current.gasPool; gp != nil && gp.Gas() < params.TxGas {
+			// 		continue
+			// 	}
+			// 	txs := make(map[common.Address][]*txpool.LazyTransaction, len(ev.Txs))
+			// 	for _, tx := range ev.Txs {
+			// 		acc, _ := types.Sender(w.current.signer, tx)
+			// 		txs[acc] = append(txs[acc], &txpool.LazyTransaction{
+			// 			Pool:      w.eth.TxPool(), // We don't know where this came from, yolo resolve from everywhere
+			// 			Hash:      tx.Hash(),
+			// 			Tx:        nil, // Do *not* set this! We need to resolve it later to pull blobs in
+			// 			Time:      tx.Time(),
+			// 			GasFeeCap: tx.GasFeeCap(),
+			// 			GasTipCap: tx.GasTipCap(),
+			// 			Gas:       tx.Gas(),
+			// 			BlobGas:   tx.BlobGas(),
+			// 		})
+			// 	}
+			// 	txset := newTransactionsByPriceAndNonce(w.current.signer, txs, w.current.header.BaseFee)
+			// 	tcount := w.current.tcount
+			// 	w.commitTransactions(w.current, txset, nil)
 
-				// Only update the snapshot if any new transactions were added
-				// to the pending block
-				if tcount != w.current.tcount {
-					w.updateSnapshot(w.current)
-				}
-			} else {
-				// Special case, if the consensus engine is 0 period clique(dev mode),
-				// submit sealing work here since all empty submission will be rejected
-				// by clique. Of course the advance sealing(empty submission) is disabled.
-				if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
-					w.commitWork(nil, time.Now().Unix())
-				}
-			}
-			w.newTxs.Add(int32(len(ev.Txs)))
+			// 	// Only update the snapshot if any new transactions were added
+			// 	// to the pending block
+			// 	if tcount != w.current.tcount {
+			// 		w.updateSnapshot(w.current)
+			// 	}
+			// } else {
+			// 	// Special case, if the consensus engine is 0 period clique(dev mode),
+			// 	// submit sealing work here since all empty submission will be rejected
+			// 	// by clique. Of course the advance sealing(empty submission) is disabled.
+			// 	if w.chainConfig.Clique != nil && w.chainConfig.Clique.Period == 0 {
+			// 		w.commitWork(nil, time.Now().Unix())
+			// 	}
+			// }
+			// w.newTxs.Add(int32(len(ev.Txs)))
 
 		// System stopped
 		case <-w.exitCh:
@@ -709,7 +709,11 @@ func (w *worker) makeEnv(parent *types.Header, header *types.Header, coinbase co
 	// the miner to speed block sealing up a bit.
 	state, err := w.chain.StateAt(parent.Root)
 	if err != nil {
-		return nil, err
+		// Beginning of Block Number X == the same as State Root of Block Number X-1
+		state, err = w.chain.StateAtBlockNumber(parent.Number.Uint64() + 1)
+		if err != nil {
+			return nil, err
+		}
 	}
 	state.StartPrefetcher("miner")
 
@@ -792,7 +796,7 @@ func (w *worker) applyTransaction(env *environment, tx *types.Transaction) (*typ
 	return receipt, err
 }
 
-func (w *worker) commitTransactions(env *environment, txs *transactionsByPriceAndNonce, interrupt *atomic.Int32) error {
+func (w *worker) commitTransactions(env *environment, txs *TransactionsByPriceAndNonce, interrupt *atomic.Int32) error {
 	gasLimit := env.header.GasLimit
 	if env.gasPool == nil {
 		env.gasPool = new(core.GasPool).AddGas(gasLimit)
@@ -998,13 +1002,13 @@ func (w *worker) fillTransactions(interrupt *atomic.Int32, env *environment) err
 
 	// Fill the block with all available pending transactions.
 	if len(localTxs) > 0 {
-		txs := newTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
+		txs := NewTransactionsByPriceAndNonce(env.signer, localTxs, env.header.BaseFee)
 		if err := w.commitTransactions(env, txs, interrupt); err != nil {
 			return err
 		}
 	}
 	if len(remoteTxs) > 0 {
-		txs := newTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
+		txs := NewTransactionsByPriceAndNonce(env.signer, remoteTxs, env.header.BaseFee)
 		if err := w.commitTransactions(env, txs, interrupt); err != nil {
 			return err
 		}
@@ -1036,6 +1040,10 @@ func (w *worker) generateWork(params *generateParams) *newPayloadResult {
 	if err != nil {
 		return &newPayloadResult{err: err}
 	}
+
+	// TODO: figure out if this is kosher (probably okay for our use case).
+	w.updateSnapshot(work)
+
 	return &newPayloadResult{
 		block:    block,
 		fees:     totalFees(block, work.receipts),
