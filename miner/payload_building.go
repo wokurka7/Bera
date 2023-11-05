@@ -226,6 +226,7 @@ func (w *worker) buildPayload(args *BuildPayloadArgs) (*Payload, error) {
 			case <-timer.C:
 				start := time.Now()
 				r := w.getSealingBlock(fullParams)
+
 				if r.err == nil {
 					payload.update(r, time.Since(start))
 				}

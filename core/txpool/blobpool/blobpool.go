@@ -299,7 +299,7 @@ type BlobPool struct {
 	chain  BlockChain   // Chain object to access the state through
 
 	head   *types.Header  // Current head of the chain
-	state  *state.StateDB // Current state at the head of the chain
+	state  state.StateDBI // Current state at the head of the chain
 	gasTip *uint256.Int   // Currently accepted minimum gas tip
 
 	lookup map[common.Hash]uint64           // Lookup table mapping hashes to tx billy entries
@@ -361,6 +361,9 @@ func (p *BlobPool) Init(gasTip *big.Int, head *types.Header, reserve txpool.Addr
 	state, err := p.chain.StateAt(head.Root)
 	if err != nil {
 		state, err = p.chain.StateAt(types.EmptyRootHash)
+		if err != nil {
+			state, err = p.chain.StateAtBlockNumber(0)
+		}
 	}
 	if err != nil {
 		return err

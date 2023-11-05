@@ -448,6 +448,11 @@ func (g *Genesis) ToBlock() *types.Block {
 	if err != nil {
 		panic(err)
 	}
+	return g.ToBlockWithRoot(root)
+}
+
+// ToBlockWithRoot returns the genesis block with the root overriden.
+func (g *Genesis) ToBlockWithRoot(root common.Hash) *types.Block {
 	head := &types.Header{
 		Number:     new(big.Int).SetUint64(g.Number),
 		Nonce:      types.EncodeNonce(g.Nonce),
