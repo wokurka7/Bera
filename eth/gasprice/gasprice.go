@@ -18,6 +18,7 @@ package gasprice
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -156,6 +157,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	lastHead, lastPrice := oracle.lastHead, oracle.lastPrice
 	oracle.cacheLock.RUnlock()
 	if headHash == lastHead {
+		// fmt.Println("CACHE 1 HEAD HAD LAST HEAD", lastPrice, headHash)
 		return new(big.Int).Set(lastPrice), nil
 	}
 	oracle.fetchLock.Lock()
@@ -166,6 +168,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	lastHead, lastPrice = oracle.lastHead, oracle.lastPrice
 	oracle.cacheLock.RUnlock()
 	if headHash == lastHead {
+		// fmt.Println("CACHE 2 HEAD HAD LAST HEAD", lastPrice, headHash)
 		return new(big.Int).Set(lastPrice), nil
 	}
 	var (
@@ -185,6 +188,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 		res := <-result
 		if res.err != nil {
 			close(quit)
+			fmt.Println("CLOSE QUIT", lastPrice)
 			return new(big.Int).Set(lastPrice), res.err
 		}
 		exp--
@@ -219,6 +223,7 @@ func (oracle *Oracle) SuggestTipCap(ctx context.Context) (*big.Int, error) {
 	oracle.lastPrice = price
 	oracle.cacheLock.Unlock()
 
+	fmt.Println("RETURNING SUGGEST TIP CAP", price)
 	return new(big.Int).Set(price), nil
 }
 

@@ -41,7 +41,7 @@ type Options struct {
 	Config *params.ChainConfig // Chain configuration for hard fork selection
 	Chain  core.ChainContext   // Chain context to access past block hashes
 	Header *types.Header       // Header defining the block context to execute in
-	State  *state.StateDB      // Pre-state on top of which to estimate the gas
+	State  state.StateDBI      // Pre-state on top of which to estimate the gas
 
 	ErrorRatio float64 // Allowed overestimation ratio for faster estimation termination
 }

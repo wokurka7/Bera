@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -27,18 +28,24 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
+type VBlockchain interface {
+	HasBlockAndState(hash common.Hash, number uint64) bool
+	HasBlock(hash common.Hash, number uint64) bool
+	consensus.ChainReader
+}
+
 // BlockValidator is responsible for validating block headers, uncles and
 // processed state.
 //
 // BlockValidator implements Validator.
 type BlockValidator struct {
 	config *params.ChainConfig // Chain configuration options
-	bc     *BlockChain         // Canonical block chain
+	bc     VBlockchain         // Canonical block chain
 	engine consensus.Engine    // Consensus engine used for validating
 }
 
 // NewBlockValidator returns a new block validator which is safe for re-use
-func NewBlockValidator(config *params.ChainConfig, blockchain *BlockChain, engine consensus.Engine) *BlockValidator {
+func NewBlockValidator(config *params.ChainConfig, blockchain VBlockchain, engine consensus.Engine) *BlockValidator {
 	validator := &BlockValidator{
 		config: config,
 		engine: engine,
@@ -121,7 +128,7 @@ func (v *BlockValidator) ValidateBody(block *types.Block) error {
 
 // ValidateState validates the various changes that happen after a state transition,
 // such as amount of used gas, the receipt roots and the state root itself.
-func (v *BlockValidator) ValidateState(block *types.Block, statedb *state.StateDB, receipts types.Receipts, usedGas uint64) error {
+func (v *BlockValidator) ValidateState(block *types.Block, statedb state.StateDBI, receipts types.Receipts, usedGas uint64) error {
 	header := block.Header()
 	if block.GasUsed() != usedGas {
 		return fmt.Errorf("invalid gas used (remote: %d local: %d)", block.GasUsed(), usedGas)

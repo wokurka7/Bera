@@ -170,6 +170,12 @@ func (p *TxPool) Close() error {
 	return nil
 }
 
+func (p *TxPool) Remove(txHash common.Hash) {
+	for _, subpool := range p.subpools {
+		subpool.PolarisRemove(txHash)
+	}
+}
+
 // loop is the transaction pool's main event loop, waiting for and reacting to
 // outside blockchain events as well as for various reporting and transaction
 // eviction events.
