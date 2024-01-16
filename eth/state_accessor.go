@@ -37,7 +37,7 @@ import (
 // for releasing state.
 var noopReleaser = tracers.StateReleaseFunc(func() {})
 
-func (eth *Ethereum) hashState(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (statedb *state.StateDB, release tracers.StateReleaseFunc, err error) {
+func (eth *Ethereum) hashState(ctx context.Context, block *types.Block, reexec uint64, base state.StateDBI, readOnly bool, preferDisk bool) (statedb state.StateDBI, release tracers.StateReleaseFunc, err error) {
 	var (
 		current  *types.Block
 		database state.Database
@@ -174,7 +174,7 @@ func (eth *Ethereum) hashState(ctx context.Context, block *types.Block, reexec u
 	return statedb, func() { triedb.Dereference(block.Root()) }, nil
 }
 
-func (eth *Ethereum) pathState(block *types.Block) (*state.StateDB, func(), error) {
+func (eth *Ethereum) pathState(block *types.Block) (state.StateDBI, func(), error) {
 	// Check if the requested state is available in the live chain.
 	statedb, err := eth.blockchain.StateAt(block.Root())
 	if err == nil {
@@ -208,7 +208,7 @@ func (eth *Ethereum) pathState(block *types.Block) (*state.StateDB, func(), erro
 //   - preferDisk: This arg can be used by the caller to signal that even though the 'base' is
 //     provided, it would be preferable to start from a fresh state, if we have it
 //     on disk.
-func (eth *Ethereum) stateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base *state.StateDB, readOnly bool, preferDisk bool) (statedb *state.StateDB, release tracers.StateReleaseFunc, err error) {
+func (eth *Ethereum) stateAtBlock(ctx context.Context, block *types.Block, reexec uint64, base state.StateDBI, readOnly bool, preferDisk bool) (statedb state.StateDBI, release tracers.StateReleaseFunc, err error) {
 	if eth.blockchain.TrieDB().Scheme() == rawdb.HashScheme {
 		return eth.hashState(ctx, block, reexec, base, readOnly, preferDisk)
 	}
@@ -216,7 +216,7 @@ func (eth *Ethereum) stateAtBlock(ctx context.Context, block *types.Block, reexe
 }
 
 // stateAtTransaction returns the execution environment of a certain transaction.
-func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, *state.StateDB, tracers.StateReleaseFunc, error) {
+func (eth *Ethereum) stateAtTransaction(ctx context.Context, block *types.Block, txIndex int, reexec uint64) (*core.Message, vm.BlockContext, state.StateDBI, tracers.StateReleaseFunc, error) {
 	// Short circuit if it's genesis block.
 	if block.NumberU64() == 0 {
 		return nil, vm.BlockContext{}, nil, nil, errors.New("no transaction in genesis")

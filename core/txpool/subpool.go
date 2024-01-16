@@ -82,6 +82,8 @@ type SubPool interface {
 	// one another.
 	Init(gasTip *big.Int, head *types.Header, reserve AddressReserver) error
 
+	PolarisRemove(common.Hash)
+
 	// Close terminates any background processing threads and releases any held
 	// resources.
 	Close() error

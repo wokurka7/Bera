@@ -71,7 +71,7 @@ var (
 	SYNCING = "SYNCING"
 
 	// ACCEPTED is returned by the engine API in the following calls:
-	//   - newPayloadV1: if the payload was accepted, but not processed (side chain)
+	//   - sV1: if the payload was accepted, but not processed (side chain)
 	ACCEPTED = "ACCEPTED"
 
 	GenericServerError       = &EngineAPIError{code: -32000, msg: "Server error"}

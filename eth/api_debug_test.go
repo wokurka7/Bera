@@ -36,7 +36,7 @@ import (
 
 var dumper = spew.ConfigState{Indent: "    "}
 
-func accountRangeTest(t *testing.T, trie *state.Trie, statedb *state.StateDB, start common.Hash, requestedNum int, expectedNum int) state.Dump {
+func accountRangeTest(t *testing.T, trie *state.Trie, statedb state.StateDBI, start common.Hash, requestedNum int, expectedNum int) state.Dump {
 	result := statedb.RawDump(&state.DumpConfig{
 		SkipCode:          true,
 		SkipStorage:       true,

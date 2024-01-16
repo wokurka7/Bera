@@ -950,7 +950,7 @@ type OverrideAccount struct {
 type StateOverride map[common.Address]OverrideAccount
 
 // Apply overrides the fields of specified accounts into the given state.
-func (diff *StateOverride) Apply(state *state.StateDB) error {
+func (diff *StateOverride) Apply(state state.StateDBI) error {
 	if diff == nil {
 		return nil
 	}
@@ -958,6 +958,9 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 		// Override account nonce.
 		if account.Nonce != nil {
 			state.SetNonce(addr, uint64(*account.Nonce))
+			if err := state.Error(); err != nil {
+				return err
+			}
 		}
 		// Override account(contract) code.
 		if account.Code != nil {
@@ -966,6 +969,9 @@ func (diff *StateOverride) Apply(state *state.StateDB) error {
 		// Override account balance.
 		if account.Balance != nil {
 			state.SetBalance(addr, (*big.Int)(*account.Balance))
+			if err := state.Error(); err != nil {
+				return err
+			}
 		}
 		if account.State != nil && account.StateDiff != nil {
 			return fmt.Errorf("account %s has both 'state' and 'stateDiff'", addr.Hex())
@@ -1063,7 +1069,7 @@ func (context *ChainContext) GetHeader(hash common.Hash, number uint64) *types.H
 	return header
 }
 
-func doCall(ctx context.Context, b Backend, args TransactionArgs, state *state.StateDB, header *types.Header, overrides *StateOverride, blockOverrides *BlockOverrides, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
+func doCall(ctx context.Context, b Backend, args TransactionArgs, state state.StateDBI, header *types.Header, overrides *StateOverride, blockOverrides *BlockOverrides, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	if err := overrides.Apply(state); err != nil {
 		return nil, err
 	}
@@ -1084,11 +1090,11 @@ func doCall(ctx context.Context, b Backend, args TransactionArgs, state *state.S
 	if err != nil {
 		return nil, err
 	}
-	blockCtx := core.NewEVMBlockContext(header, NewChainContext(ctx, b), nil)
+	blockCtx := b.GetBlockContext(ctx, header)
 	if blockOverrides != nil {
-		blockOverrides.Apply(&blockCtx)
+		blockOverrides.Apply(blockCtx)
 	}
-	evm := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, &blockCtx)
+	evm := b.GetEVM(ctx, msg, state, header, &vm.Config{NoBaseFee: true}, blockCtx)
 
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
@@ -1519,8 +1525,14 @@ func AccessList(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrH
 		to = crypto.CreateAddress(args.from(), uint64(*args.Nonce))
 	}
 	isPostMerge := header.Difficulty.Cmp(common.Big0) == 0
+	rules := b.ChainConfig().Rules(header.Number, isPostMerge, header.Time)
 	// Retrieve the precompiles since they don't need to be added to the access list
-	precompiles := vm.ActivePrecompiles(b.ChainConfig().Rules(header.Number, isPostMerge, header.Time))
+	state, _, err := b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+
+	precompiles := vm.ActivePrecompiles(vm.NewEVM(vm.BlockContext{}, vm.TxContext{}, state, b.ChainConfig(), vm.Config{}), rules) // TODO: use evm precompile manager instead
 
 	// Create an initial tracer
 	prevTracer := logger.NewAccessListTracer(nil, args.from(), to, precompiles)

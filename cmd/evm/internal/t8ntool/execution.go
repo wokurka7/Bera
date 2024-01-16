@@ -117,7 +117,7 @@ type rejectedTx struct {
 // Apply applies a set of transactions to a pre-state
 func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 	txIt txIterator, miningReward int64,
-	getTracerFn func(txIndex int, txHash common.Hash) (vm.EVMLogger, error)) (*state.StateDB, *ExecutionResult, []byte, error) {
+	getTracerFn func(txIndex int, txHash common.Hash) (vm.EVMLogger, error)) (state.StateDBI, *ExecutionResult, []byte, error) {
 	// Capture errors for BLOCKHASH operation, if we haven't been supplied the
 	// required blockhashes
 	var hashError error
@@ -245,7 +245,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 		}
 		includedTxs = append(includedTxs, tx)
 		if hashError != nil {
-			return nil, nil, nil, NewError(ErrorMissingBlockhash, hashError)
+			return nil, nil, nil, New(ErrorMissingBlockhash, hashError)
 		}
 		gasUsed += msgResult.UsedGas
 
@@ -352,7 +352,7 @@ func (pre *Prestate) Apply(vmConfig vm.Config, chainConfig *params.ChainConfig,
 	return statedb, execRs, body, nil
 }
 
-func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) *state.StateDB {
+func MakePreState(db ethdb.Database, accounts core.GenesisAlloc) state.StateDBI {
 	sdb := state.NewDatabaseWithConfig(db, &trie.Config{Preimages: true})
 	statedb, _ := state.New(types.EmptyRootHash, sdb, nil)
 	for addr, a := range accounts {

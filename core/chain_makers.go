@@ -41,7 +41,7 @@ type BlockGen struct {
 	cm      *chainMaker
 	parent  *types.Block
 	header  *types.Header
-	statedb *state.StateDB
+	statedb state.StateDBI
 
 	gasPool     *GasPool
 	txs         []*types.Transaction
@@ -311,7 +311,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 	}
 	cm := newChainMaker(parent, config, engine)
 
-	genblock := func(i int, parent *types.Block, triedb *trie.Database, statedb *state.StateDB) (*types.Block, types.Receipts) {
+	genblock := func(i int, parent *types.Block, triedb *trie.Database, statedb state.StateDBI) (*types.Block, types.Receipts) {
 		b := &BlockGen{i: i, cm: cm, parent: parent, statedb: statedb, engine: engine}
 		b.header = cm.makeHeader(parent, statedb, b.engine)
 
@@ -416,7 +416,7 @@ func GenerateChainWithGenesis(genesis *Genesis, engine consensus.Engine, n int, 
 	return db, blocks, receipts
 }
 
-func (cm *chainMaker) makeHeader(parent *types.Block, state *state.StateDB, engine consensus.Engine) *types.Header {
+func (cm *chainMaker) makeHeader(parent *types.Block, state state.StateDBI, engine consensus.Engine) *types.Header {
 	time := parent.Time() + 10 // block time is fixed at 10 seconds
 	header := &types.Header{
 		Root:       state.IntermediateRoot(cm.config.IsEIP158(parent.Number())),

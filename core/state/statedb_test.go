@@ -173,10 +173,10 @@ func TestCopy(t *testing.T) {
 	orig.Finalise(false)
 
 	// Copy the state
-	copy := orig.Copy()
+	copy := orig.Copy().(*StateDB)
 
 	// Copy the copy state
-	ccopy := copy.Copy()
+	ccopy := copy.Copy().(*StateDB)
 
 	// modify all in memory
 	for i := byte(0); i < 255; i++ {
@@ -592,7 +592,7 @@ func TestCopyCommitCopy(t *testing.T) {
 		t.Fatalf("initial committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the non-committed state database and check pre/post commit balance
-	copyOne := state.Copy()
+	copyOne := state.Copy().(*StateDB)
 	if balance := copyOne.GetBalance(addr); balance.Cmp(big.NewInt(42)) != 0 {
 		t.Fatalf("first copy pre-commit balance mismatch: have %v, want %v", balance, 42)
 	}
@@ -679,7 +679,7 @@ func TestCopyCopyCommitCopy(t *testing.T) {
 		t.Fatalf("first copy committed storage slot mismatch: have %x, want %x", val, common.Hash{})
 	}
 	// Copy the copy and check the balance once more
-	copyTwo := copyOne.Copy()
+	copyTwo := copyOne.Copy().(*StateDB)
 	if balance := copyTwo.GetBalance(addr); balance.Cmp(big.NewInt(42)) != 0 {
 		t.Fatalf("second copy pre-commit balance mismatch: have %v, want %v", balance, 42)
 	}
@@ -864,8 +864,8 @@ func TestStateDBAccessList(t *testing.T) {
 
 	memDb := rawdb.NewMemoryDatabase()
 	db := NewDatabase(memDb)
-	state, _ := New(types.EmptyRootHash, db, nil)
-	state.accessList = newAccessList()
+	state, _ := New(common.Hash{}, db, nil)
+	state.accessList = NewAccessList()
 
 	verifyAddrs := func(astrings ...string) {
 		t.Helper()
@@ -1016,7 +1016,7 @@ func TestStateDBAccessList(t *testing.T) {
 	}
 	// Check the copy
 	// Make a copy
-	state = stateCopy1
+	state = stateCopy1.(*StateDB)
 	verifyAddrs("aa", "bb")
 	verifySlots("bb", "01", "02")
 	if got, exp := len(state.accessList.addresses), 2; got != exp {

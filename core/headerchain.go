@@ -351,7 +351,7 @@ func (hc *HeaderChain) ValidateHeaderChain(chain []*types.Header) (int, error) {
 // otherwise they were all processed successfully.
 //
 // The returned 'write status' says if the inserted headers are part of the canonical chain
-// or a side chain.
+// or a s ide chain.
 func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, start time.Time, forker *ForkChoice) (WriteStatus, error) {
 	if hc.procInterrupt() {
 		return 0, errors.New("aborted")
