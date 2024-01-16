@@ -359,7 +359,6 @@ func (d *Downloader) LegacySync(id string, head common.Hash, td, ttd *big.Int, m
 // it will use the best peer possible and synchronize if its TD is higher than our own. If any of the
 // checks fail an error will be returned. This method is synchronous
 func (d *Downloader) synchronise(id string, hash common.Hash, td, ttd *big.Int, mode SyncMode, beaconMode bool, beaconPing chan struct{}) error {
-	fmt.Println("\n\n\n SYNCING FROM PEER", id, "\n\n\n")
 	// The beacon header syncer is async. It will start this synchronization and
 	// will continue doing other tasks. However, if synchronization needs to be
 	// cancelled, the syncer needs to know if we reached the startup point (and
