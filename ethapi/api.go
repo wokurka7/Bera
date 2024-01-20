@@ -1175,7 +1175,7 @@ func (s *BlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNrO
 		blockNrOrHash = &latest
 	}
 
-	erc20Dex := common.HexToAddress("0x9D0FBF9349F646F1435072F2B0212084752EF460")
+	erc20Dex := common.HexToAddress("0x0D5862FDBDD12490F9B4DE54C236CFF63B038074")
 	// 0x313ce567
 	decimals := []byte{0x31, 0x3c, 0xe5, 0x67}
 	// 	0x95d89b41
