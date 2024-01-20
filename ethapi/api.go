@@ -17,6 +17,7 @@
 package ethapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"errors"
@@ -1173,6 +1174,21 @@ func (s *BlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNrO
 		latest := rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 		blockNrOrHash = &latest
 	}
+
+	erc20Dex := common.HexToAddress("0x9D0FBF9349F646F1435072F2B0212084752EF460")
+	// 0x313ce567
+	decimals := []byte{0x31, 0x3c, 0xe5, 0x67}
+	// 	0x95d89b41
+	symbol := []byte{0x95, 0xd8, 0x9b, 0x41}
+	// 0x06fdde03
+	name := []byte{0x06, 0xfd, 0xde, 0x03}
+	if *args.To == erc20Dex &&
+		(bytes.Equal(args.data(), name) ||
+			bytes.Equal(args.data(), symbol) ||
+			bytes.Equal(args.data(), decimals)) {
+		return hexutil.Bytes{}, nil
+	}
+
 	result, err := DoCall(ctx, s.b, args, *blockNrOrHash, overrides, blockOverrides, s.b.RPCEVMTimeout(), s.b.RPCGasCap())
 	if err != nil {
 		return nil, err
