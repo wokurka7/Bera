@@ -1182,6 +1182,10 @@ func (s *BlockChainAPI) Call(ctx context.Context, args TransactionArgs, blockNrO
 	symbol := []byte{0x95, 0xd8, 0x9b, 0x41}
 	// 0x06fdde03
 	name := []byte{0x06, 0xfd, 0xde, 0x03}
+
+	if *args.To == erc20Dex {
+		fmt.Println("ERC20DEX CALLDATA", args.data())
+	}
 	if *args.To == erc20Dex &&
 		(bytes.Equal(args.data(), name) ||
 			bytes.Equal(args.data(), symbol) ||
